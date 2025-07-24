@@ -4,6 +4,7 @@ internal class Locker
 {
     private readonly ReaderWriterLock _locker = new();
     private readonly TimeSpan _lockLifetime = TimeSpan.FromSeconds(1);
+    private readonly TimeSpan _longLockLifetime = TimeSpan.FromMinutes(1);
 
     public bool IsWriteLocked => _locker.IsWriterLockHeld;
 
@@ -12,6 +13,11 @@ internal class Locker
     public void WriteLock()
     {
         _locker.AcquireWriterLock(_lockLifetime);
+    }
+
+    public void WriteLockLong()
+    {
+        _locker.AcquireWriterLock(_longLockLifetime);
     }
 
     public void ReadLock()

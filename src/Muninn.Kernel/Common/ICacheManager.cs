@@ -2,8 +2,10 @@
 
 namespace Muninn.Kernel.Common;
 
-internal interface IPersistentCache
+public interface ICacheManager
 {
+    public Task<MuninResult> AddAsync(Entry entry, CancellationToken cancellationToken);
+
     public Task<MuninResult> RemoveAsync(string key, CancellationToken cancellationToken);
 
     public Task<MuninResult> GetAsync(string key, CancellationToken cancellationToken);
@@ -14,7 +16,11 @@ internal interface IPersistentCache
 
     public Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken);
 
+    public Task<MuninResult> UpdateAsync(Entry entry, CancellationToken cancellationToken);
+
     public Task<MuninResult> InsertAsync(Entry entry, CancellationToken cancellationToken);
 
-    public Task ClearAsync(CancellationToken cancellationToken);
+    public Task InitializeAsync();
+
+    public void Clear(CancellationToken cancellationToken);
 }
