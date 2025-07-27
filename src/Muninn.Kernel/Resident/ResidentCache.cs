@@ -1,20 +1,27 @@
 ﻿using Microsoft.Extensions.Logging;
 using Muninn.Kernel.Common;
+using Muninn.Kernel.Extensions;
 using Muninn.Kernel.Models;
 
-namespace Muninn.Kernel;
+namespace Muninn.Kernel.Resident;
 
 internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfiguration configuration, Locker locker, IFilterManager filterManager) : IResidentCache
 {
+    private class ResidentCacheIndex
+    {
+        public bool IsUsed { get; set; }
+    }
+
+    private const int NOT_VALID_INDEX = -1;
+
     private readonly ILogger _logger = logger;
     private readonly IFilterManager _filterManager = filterManager;
     private readonly Locker _locker = locker;
     private readonly ResidentConfiguration _configuration = configuration;
 
-    private readonly MuninResult _cancelledResult = new(false, null, "Cancellation has been requested", null, true);
-
-    private Entry?[] _entries = new Entry[1000];
-    private const int NOT_VALID_INDEX = -1;
+    private ResidentCacheIndex[] _indexes = new ResidentCacheIndex[configuration.ArrayIncreasementValue];
+    private Entry?[] _entries = new Entry[configuration.ArrayIncreasementValue];
+    private bool _isResizeCalled;
 
     public MuninResult Add(Entry entry, CancellationToken cancellationToken)
     {
@@ -27,7 +34,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return _cancelledResult;
+            return GetCancelledResult(entry.Key);
         }
 
         if (freeIndex is NOT_VALID_INDEX)
@@ -51,27 +58,22 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return _cancelledResult;
+            return GetCancelledResult(key);
         }
-
-        Entry? entry = null;
 
         try
         {
             _locker.ReadLock();
-            entry = _entries[index];
+            var entry = _entries[index];
+            _locker.ReadReleaseLock();
             _locker.WriteLock();
             _entries[index] = null;
+            _indexes[index].IsUsed = false;
 
             return new MuninResult(true, entry);
         }
         catch (Exception exception)
         {
-            if (entry is not null && _entries[index] is null)
-            {
-                return new MuninResult(true, entry);
-            }
-
             return new MuninResult(false, null, $"Cannot remove entry with key {key}", exception);
         }
         finally
@@ -83,6 +85,12 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     public MuninResult Get(string key, CancellationToken cancellationToken)
     {
         var index = TryFindIndex(key.GetHashCode(), out _);
+
+        if (index is NOT_VALID_INDEX)
+        {
+            return new MuninResult(false, null, $"Key {key} is not found");
+        }
+
         _locker.ReadLock();
         var entry = _entries[index];
         _locker.ReadReleaseLock();
@@ -90,26 +98,19 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         return new MuninResult(entry is not null, entry);
     }
 
-    public IEnumerable<Entry?> GetAll(CancellationToken cancellationToken)
+    public IEnumerable<Entry> GetAll(CancellationToken cancellationToken)
     {
-        _locker.ReadLock();
-
-        for (var i = 0; i < _entries.Length; i++)
-        {
-            yield return _entries[i];
-        }
-
-        _locker.ReadReleaseLock();
+        return _entries.Where(entry => entry is not null)!;
     }
 
     public IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
     {
-        yield break;
+        return _filterManager.FilterEntryKeys(_entries, chunks, cancellationToken);
     }
 
-    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
+    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken)
     {
-        yield break;
+        return _filterManager.FilterEntryValues(_entries, chunks, cancellationToken);
     }
 
     public MuninResult Update(Entry entry, CancellationToken cancellationToken)
@@ -125,7 +126,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return _cancelledResult;
+            return GetCancelledResult(entry.Key);
         }
 
         if (index is NOT_VALID_INDEX)
@@ -139,8 +140,47 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             freeIndex = GetFreeIndex();
         }
 
-        return UpdateCore(entry, freeIndex + 1);
+        return UpdateCore(entry, freeIndex);
     }
+
+    public void Clear()
+    {
+        _locker.WriteLock();
+        _entries = new Entry[_configuration.ArrayIncreasementValue];
+        _indexes = new ResidentCacheIndex[_configuration.ArrayIncreasementValue];
+        _locker.WriteReleaseLock();
+        GC.Collect();
+    }
+
+    public void Initialize(Entry[] entries)
+    {
+        if (entries.Length < _configuration.ArrayIncreasementValue)
+        {
+            _entries = new Entry[_configuration.ArrayIncreasementValue];
+
+            for (var i = 0; i < entries.Length; i++)
+            {
+                _entries[i] = entries[i];
+            }
+        }
+        else
+        {
+            _entries = entries;
+        }
+
+        _indexes = new ResidentCacheIndex[_entries.Length];
+
+        for (var i = 0; i < _indexes.Length; i++)
+        {
+            _indexes[i] = new ResidentCacheIndex
+            {
+                IsUsed = _entries[i] is not null
+            };
+        }
+
+        GC.Collect();
+    }
+
 
     private int TryFindIndex(int hashcode, out int freeIndex)
     {
@@ -166,44 +206,91 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             freeIndex = i;
         }
 
+        if (freeIndex is not NOT_VALID_INDEX)
+        {
+            if (!_indexes[freeIndex].IsUsed)
+            {
+                _indexes[freeIndex].IsUsed = true;
+            }
+            else
+            {
+                freeIndex = NOT_VALID_INDEX;
+
+                for (var i = freeIndex + 1; i < _indexes.Length; i++)
+                {
+                    if (!_indexes[i].IsUsed)
+                    {
+                        _indexes[i].IsUsed = true;
+                        freeIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
         _locker.ReadReleaseLock();
 
-        return NOT_VALID_INDEX;
+        return freeIndex;
     }
 
     private int GetFreeIndex()
     {
         _locker.ReadLock();
 
-        for (var i = _entries.Length - 1; i >= 0; i--)
+        for (var i = _indexes.Length - 1; i >= 0; i--)
         {
-            if (_entries[i] is null)
+            if (!_indexes[i].IsUsed)
             {
                 _locker.ReadReleaseLock();
+                _indexes[i].IsUsed = true;
 
                 return i;
             }
         }
 
+        var oldEntry = _entries.OrderBy(entry => entry?.LastModificationTime).First();
+        var index = Array.IndexOf(_entries, oldEntry);
         _locker.ReadReleaseLock();
 
-        return NOT_VALID_INDEX;
+        return index;
     }
 
     private void IncreaseArraySize()
     {
-        _locker.ReadLock();
-        var array = new Entry?[_entries.Length + _configuration.ArrayIncreasementValue];
-
-        for (var i = 0; i < _entries.Length; i++)
+        if (_isResizeCalled)
         {
-            array[i] = _entries[i];
+            while (_isResizeCalled)
+            {
+
+            }
+
+            return;
         }
 
-        _locker.ReadReleaseLock();
-        _locker.WriteLock();
-        _entries = array;
-        _locker.WriteReleaseLock();
+        _isResizeCalled = true;
+
+        try
+        {
+            _locker.ReadLock();
+            var entries = new Entry?[_entries.Length + _configuration.ArrayIncreasementValue];
+            var indexes = new ResidentCacheIndex[_indexes.Length + _configuration.ArrayIncreasementValue];
+            _locker.ReadReleaseLock();
+            _locker.WriteLockLong();
+
+            for (var i = 0; i < _entries.Length; i++) // _entries.Length has to be equal to _indexes.Length
+            {
+                entries[i] = _entries[i];
+                indexes[i] = _indexes[i];
+                indexes[i + _indexes.Length - 1] = new();
+            }
+
+            _entries = entries;
+            _locker.WriteReleaseLock();
+        }
+        finally
+        {
+            _isResizeCalled = false;
+        }
     }
 
     private void DecreaseArraySize()
@@ -229,11 +316,15 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         {
             _locker.WriteLock();
             _entries[index] = entry;
+            _logger.LogKeyAdd(entry.Key, entry.DecodeValue());
 
             return new MuninResult(true, entry);
         }
         catch (Exception exception)
         {
+            _logger.LogFailedKeyInsert(entry.Key, entry.DecodeValue(), exception);
+            _indexes[index].IsUsed = false;
+
             return new MuninResult(false, null, "Cannot add new entry into the cache", exception);
         }
         finally
@@ -250,9 +341,10 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         {
             _locker.ReadLock();
             oldEntry = _entries[index];
-
+            _locker.ReadReleaseLock();
             _locker.WriteLock();
             _entries[index] = entry;
+            _logger.LogKeyUpdate(entry.Key, oldEntry!.DecodeValue(), entry.DecodeValue());
 
             return new MuninResult(true, entry);
         }
@@ -264,6 +356,8 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             }
 
             _entries[index] = oldEntry;
+            _indexes[index].IsUsed = false;
+            _logger.LogFailedKeyUpdate(entry.Key, entry.DecodeValue(), exception);
 
             return new MuninResult(false, null, "Cannot update entry in the cache", exception);
         }
@@ -271,5 +365,12 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         {
             _locker.WriteReleaseLock();
         }
+    }
+
+    private MuninResult GetCancelledResult(string key)
+    {
+        _logger.LogCancelledRequest(key);
+
+        return new(false, null, "Cancellation has been requested", null, true);
     }
 }
