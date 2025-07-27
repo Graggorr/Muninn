@@ -1,13 +1,15 @@
 ﻿using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
+using Muninn.Kernel.Resident;
 
 namespace Muninn.Kernel;
 
-internal class CacheManager(IPersistentCache persistentCache, IResidentCache residentCache, IPersistentQueue persistentQueue) : ICacheManager
+internal class CacheManager(IPersistentCache persistentCache, IResidentCache residentCache, IPersistentQueue persistentQueue, ISortedResidentCache sortedResidentCache) : ICacheManager
 {
     private readonly IPersistentCache _persistentCache = persistentCache;
     private readonly IResidentCache _residentCache = residentCache;
     private readonly IPersistentQueue _persistentQueue = persistentQueue;
+    private readonly ISortedResidentCache _sortedResidentCache = sortedResidentCache;
 
     private bool _isInitialized;
 
@@ -40,10 +42,14 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         var tasks = new List<Task<MuninResult>>(2)
         {
             Task.Factory.StartNew(() => _residentCache.Get(key, cancellationToken), cancellationToken),
-            _persistentCache.GetAsync(key, cancellationToken),
         };
 
-        return await GetCoreAsync(tasks, result => result.IsSuccessful);
+        if (!_sortedResidentCache.IsSorting)
+        {
+            tasks.Add(Task.Factory.StartNew(() => _sortedResidentCache.GetByKey(key), cancellationToken));
+        }
+
+        return await GetCoreAsync(tasks, result => result.IsSuccessful && (!result.Message.Equals(SortedResidentCache.MESSAGE) || DateTime.UtcNow - result.Entry!.LastModificationTime > TimeSpan.FromMinutes(5)));
     }
 
     public async Task<IEnumerable<Entry>> GetAllAsync(CancellationToken cancellationToken)
@@ -123,7 +129,7 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         var task = await Task.WhenAny(tasks);
         var result = await task;
 
-        if (successfulCondition(task.Result))
+        if (successfulCondition(result))
         {
             return result;
         }

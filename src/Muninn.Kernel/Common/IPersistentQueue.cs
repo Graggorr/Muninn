@@ -2,7 +2,7 @@
 
 namespace Muninn.Kernel.Common;
 
-internal interface IPersistentQueue
+public interface IPersistentQueue
 {
     public Task EnqueueInsertionAsync(PersistentCommand persistentCommand);
 

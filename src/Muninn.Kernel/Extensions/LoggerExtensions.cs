@@ -42,4 +42,7 @@ internal static partial class LoggerExtensions
 
     [LoggerMessage(EventId = 8013, Level = LogLevel.Information, Message = "Key {Key} is not found")]
     public static partial void LogKeyIsNotFound(this ILogger logger, string key);
+
+    [LoggerMessage(EventId = 8014, Level = LogLevel.Error, Message = "Cannot sort entries")]
+    public static partial void LogSortError(this ILogger logger, Exception exception);
 }

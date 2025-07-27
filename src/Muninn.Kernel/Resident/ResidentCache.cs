@@ -100,11 +100,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
     public IEnumerable<Entry> GetAll(CancellationToken cancellationToken)
     {
-        _locker.ReadLock();
-        var enumerable = _entries.Where(entry => entry is not null);
-        _locker.ReadReleaseLock();
-
-        return enumerable!;
+        return _entries.Where(entry => entry is not null)!;
     }
 
     public IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)

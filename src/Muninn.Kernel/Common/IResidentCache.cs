@@ -2,7 +2,7 @@
 
 namespace Muninn.Kernel.Common;
 
-internal interface IResidentCache
+public interface IResidentCache
 {
     public MuninResult Add(Entry entry, CancellationToken cancellationToken);
 

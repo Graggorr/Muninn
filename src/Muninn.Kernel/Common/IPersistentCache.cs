@@ -2,7 +2,7 @@
 
 namespace Muninn.Kernel.Common;
 
-internal interface IPersistentCache
+public interface IPersistentCache
 {
     public Task<MuninResult> RemoveAsync(string key, CancellationToken cancellationToken);
 
