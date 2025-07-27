@@ -38,7 +38,7 @@ public static class Register
         return services;
     }
 
-    private static Task InitializeMuninAsync(this IEndpointRouteBuilder app)
+    public static Task InitializeMuninAsync(this IEndpointRouteBuilder app)
     {
         var cacheManager = app.ServiceProvider.GetRequiredService<ICacheManager>();
 
