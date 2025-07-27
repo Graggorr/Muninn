@@ -13,4 +13,6 @@ public class Entry(string key, byte[] value)
     public DateTime CreationTime { get; init; } = DateTime.UtcNow;
 
     public DateTime LastModificationTime { get; set; }
+
+    public string EncodingName { get; set; } = "ASCII";
 }

@@ -12,9 +12,11 @@ internal interface IPersistentCache
 
     public Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken);
 
-    public Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken);
+    public Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken);
 
     public Task<MuninResult> InsertAsync(Entry entry, CancellationToken cancellationToken);
 
     public Task ClearAsync(CancellationToken cancellationToken);
+
+    public void Initialize();
 }

@@ -1,38 +1,40 @@
-﻿using Microsoft.Extensions.Logging;
-using Muninn.Kernel.Common;
-using Muninn.Kernel.Models;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Muninn.Kernel.Common;
+using Muninn.Kernel.Extensions;
+using Muninn.Kernel.Models;
 
 namespace Muninn.Kernel.Persistent;
 
-internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfiguration persistentConfiguration) : IPersistentCache
+internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfiguration persistentConfiguration, IFilterManager filterManager) : IPersistentCache
 {
     private readonly ref struct StreamResult(IDisposable? stream, Exception? exception)
     {
         public IDisposable? Stream { get; } = stream;
 
-        public Exception? Exception { get; init; } = exception;
+        public Exception? Exception { get; } = exception;
 
         public StreamWriter StreamWriter => (Stream as StreamWriter)!;
 
         public StreamReader StreamReader => (Stream as StreamReader)!;
     }
 
-    private static readonly Encoding _encoding = Encoding.ASCII;
     private const string FILE_EXTENSION = ".munin";
 
     private readonly ILogger _logger = logger;
+    private readonly IFilterManager _filterManager = filterManager;
     private readonly string _directoryPath = persistentConfiguration.DirectoryPath;
     private readonly int _defaultBufferSize = persistentConfiguration.DefaultBufferSize;
     private readonly ConcurrentDictionary<int, ConcurrentHashSet<IDisposable>> _registeredStreams = [];
 
-    private bool _isBlocked = false;
+    private bool _isBlocked;
 
     public async Task<MuninResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
     {
-        var fullPath = BuildFullPath(entry.Key);
-        var streamResult = CreateStream(entry.Hashcode, fullPath, true, entry.Value.Length);
+        var fullPath = BuildFullPath(entry.Key, entry.EncodingName);
+        var encoding = Encoding.GetEncoding(entry.EncodingName);
+        var streamResult = CreateStream(entry.Hashcode, fullPath, encoding, true, entry.Value.Length);
 
         if (streamResult.Exception is not null)
         {
@@ -45,15 +47,16 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
         try
         {
-            var value = _encoding.GetChars(entry.Value);
-
+            var value = encoding.GetChars(entry.Value);
             await streamWriter.WriteAsync(value, cancellationToken);
 
             return new MuninResult(true, entry);
         }
         catch (Exception exception)
         {
-            return new MuninResult(false, null, "Cannot write data into the file", exception);
+            _logger.LogFailedFileInsert(entry.Key, exception);
+
+            return CreateFailedMuninResult(exception, "Cannot write data into the file");
         }
         finally
         {
@@ -91,7 +94,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             }
             catch (Exception exception)
             {
-
+                _logger.LogFailedFileDelete(Path.GetFileName(filePath), exception);
             }
         }
 
@@ -100,11 +103,19 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
     public async Task<MuninResult> RemoveAsync(string key, CancellationToken cancellationToken)
     {
-        var fullPath = BuildFullPath(key);
+        var fullPath = Directory.GetFiles(_directoryPath, key).FirstOrDefault();
+
+        if (string.IsNullOrEmpty(fullPath))
+        {
+            return new MuninResult(true, null, $"File {key} is not found");
+        }
+
+        const int dummyBufferSize = 0;
+        var encoding = GetEncoding(fullPath);
         var hashCode = key.GetHashCode();
 
-        var dummyStreamResult = CreateStream(hashCode, fullPath, true, 0);
-        var streamReaderResult = CreateStream(hashCode, fullPath, false, _defaultBufferSize);
+        var dummyStreamResult = CreateStream(hashCode, fullPath, encoding, true, dummyBufferSize);
+        var streamReaderResult = CreateStream(hashCode, fullPath, encoding, false, _defaultBufferSize);
 
         if (dummyStreamResult.Exception is not null)
         {
@@ -121,12 +132,14 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
         try
         {
-            var entry = await ReadFileAsync(streamReader, key, cancellationToken);
+            var entry = await ReadFileAsync(streamReader, key, encoding, cancellationToken);
 
             return new MuninResult(true, entry);
         }
         catch (Exception exception)
         {
+            _logger.LogFailedFileDelete(key, exception);
+
             return CreateFailedMuninResult(exception);
         }
         finally
@@ -138,9 +151,16 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
     public async Task<MuninResult> GetAsync(string key, CancellationToken cancellationToken)
     {
+        var fullPath = Directory.GetFiles(_directoryPath, key).FirstOrDefault();
+
+        if (string.IsNullOrEmpty(fullPath))
+        {
+            return new MuninResult(true, null, "File is not found");
+        }
+
+        var encoding = GetEncoding(fullPath);
         var hashCode = key.GetHashCode();
-        var fullPath = BuildFullPath(key);
-        var streamReaderResult = CreateStream(hashCode, fullPath, false, _defaultBufferSize);
+        var streamReaderResult = CreateStream(hashCode, fullPath, encoding, false, _defaultBufferSize);
 
         if (streamReaderResult.Exception is not null)
         {
@@ -151,12 +171,14 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
         try
         {
-            var entry = await ReadFileAsync(streamReader, key, cancellationToken);
+            var entry = await ReadFileAsync(streamReader, key, encoding, cancellationToken);
 
             return new MuninResult(true, entry);
         }
         catch (Exception exception)
         {
+            _logger.LogFailedFileRead(key, exception);
+
             return CreateFailedMuninResult(exception);
         }
         finally
@@ -173,9 +195,11 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         foreach (var filePath in filePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var key = Path.GetFileName(filePath);
+            var fileNameSplit = Path.GetFileNameWithoutExtension(filePath).Split('-');
+            var key = fileNameSplit[0];
+            var encoding = Encoding.GetEncoding(fileNameSplit[^1]);
             var hashCode = key.GetHashCode();
-            var streamResult = CreateStream(hashCode, filePath, false, _defaultBufferSize);
+            var streamResult = CreateStream(hashCode, filePath, encoding, false, _defaultBufferSize);
 
             if (streamResult.Stream is null)
             {
@@ -183,9 +207,14 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             }
 
             var streamReader = streamResult.StreamReader;
+
             try
             {
-                entries.Add(await ReadFileAsync(streamReader, key, cancellationToken));
+                entries.Add(await ReadFileAsync(streamReader, key, encoding, cancellationToken));
+            }
+            catch (Exception exception)
+            {
+                _logger.LogFailedFileRead(key, exception);
             }
             finally
             {
@@ -196,25 +225,40 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         return entries;
     }
 
-    public Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
+    public async Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
     {
-        return null;
+        var entries = await GetAllAsync(cancellationToken);
+
+        return _filterManager.FilterEntryKeys(entries.ToArray(), chunks, cancellationToken);
     }
 
-    public Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
+    public async Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken)
     {
-        return null;
+        var entries = await GetAllAsync(cancellationToken);
+
+        return _filterManager.FilterEntryValues(entries.ToArray(), chunks, cancellationToken);
     }
 
-    private static async Task<Entry> ReadFileAsync(StreamReader streamReader, string key, CancellationToken cancellationToken)
+    public void Initialize()
+    {
+        if (!Directory.Exists(_directoryPath))
+        {
+            Directory.CreateDirectory(_directoryPath, UnixFileMode.None);
+        }
+    }
+
+    private static async Task<Entry> ReadFileAsync(StreamReader streamReader, string key, Encoding encoding, CancellationToken cancellationToken)
     {
         var result = await streamReader.ReadToEndAsync(cancellationToken);
-        var value = _encoding.GetBytes(result);
+        var value = encoding.GetBytes(result);
 
-        return new Entry(key, value);
+        return new Entry(key, value)
+        {
+            EncodingName = encoding.EncodingName
+        };
     }
 
-    private StreamResult CreateStream(int hashcode, string fullPath, bool isWriting, int bufferSize)
+    private StreamResult CreateStream(int hashcode, string fullPath, Encoding encoding, bool isWriting, int bufferSize)
     {
         var hashSet = _registeredStreams.GetOrAdd(hashcode, _ => new ConcurrentHashSet<IDisposable>());
 
@@ -227,7 +271,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             {
                 BlockExecutionWhileTrue(() => hashSet.Any(item => item.GetType() == typeof(StreamWriter)));
                 fileStream = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read, bufferSize, FileOptions.WriteThrough | FileOptions.Asynchronous);
-                stream = new StreamWriter(fileStream, _encoding, bufferSize)
+                stream = new StreamWriter(fileStream, encoding, bufferSize)
                 {
                     AutoFlush = true
                 };
@@ -235,7 +279,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             else
             {
                 fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, bufferSize, FileOptions.Asynchronous);
-                stream = new StreamReader(fileStream, _encoding);
+                stream = new StreamReader(fileStream, encoding);
             }
 
             hashSet.Add(stream);
@@ -244,6 +288,9 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         }
         catch (Exception exception)
         {
+            var operation = isWriting ? "writing" : "reading";
+            _logger.LogFailedStreamCreate(operation, Path.GetFileName(fullPath), exception);
+
             return new StreamResult(null, exception);
         }
     }
@@ -262,7 +309,14 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         _registeredStreams[hashcode].Remove(disposable);
     }
 
-    private string BuildFullPath(string key) => Path.Combine(_directoryPath, $"{key}{FILE_EXTENSION}");
+    private string BuildFullPath(string key, string encoding) => Path.Combine(_directoryPath, $"{key}-{encoding}{FILE_EXTENSION}");
+
+    private static Encoding GetEncoding(string fullPath)
+    {
+        var encodingName = Path.GetFileNameWithoutExtension(fullPath).Split('-')[^1];
+
+        return Encoding.GetEncoding(encodingName);
+    }
 
     private static void BlockExecutionWhileTrue(Func<bool> predicate)
     {
@@ -272,5 +326,5 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         }
     }
 
-    private static MuninResult CreateFailedMuninResult(Exception exception) => new(false, null, string.Empty, exception);
+    private static MuninResult CreateFailedMuninResult(Exception exception, string message = "") => new(false, null, message, exception);
 }

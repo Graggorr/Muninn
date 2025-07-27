@@ -14,7 +14,7 @@ internal interface IResidentCache
 
     public IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken);
 
-    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken);
+    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken);
 
     public MuninResult Update(Entry entry, CancellationToken cancellationToken);
 
