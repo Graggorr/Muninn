@@ -4,11 +4,11 @@ namespace Muninn.Kernel.Common;
 
 public interface IResidentCache
 {
-    public MuninResult Add(Entry entry, CancellationToken cancellationToken);
+    public Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken);
 
-    public MuninResult Remove(string key, CancellationToken cancellationToken);
+    public Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken);
 
-    public MuninResult Get(string key, CancellationToken cancellationToken);
+    public MuninnResult Get(string key, CancellationToken cancellationToken);
 
     public IEnumerable<Entry> GetAll(CancellationToken cancellationToken);
 
@@ -16,11 +16,11 @@ public interface IResidentCache
 
     public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken);
 
-    public MuninResult Update(Entry entry, CancellationToken cancellationToken);
+    public Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken);
 
-    public MuninResult Insert(Entry entry, CancellationToken cancellationToken);
+    public Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken);
 
-    public void Clear();
+    public Task ClearAsync(CancellationToken cancellationToken);
 
-    internal void Initialize(Entry[] entries);
+    internal Task InitializeAsync(Entry[] entries);
 }

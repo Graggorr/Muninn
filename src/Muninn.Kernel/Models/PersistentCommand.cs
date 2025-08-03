@@ -1,6 +1,4 @@
-﻿using Muninn.Kernel.Models;
-
-namespace Muninn.Kernel.Persistent;
+﻿namespace Muninn.Kernel.Models;
 
 internal record PersistentCommand(Entry Entry, int TryCount = 0)
 {

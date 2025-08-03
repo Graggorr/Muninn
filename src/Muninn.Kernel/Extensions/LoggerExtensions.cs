@@ -23,7 +23,7 @@ internal static partial class LoggerExtensions
     public static partial void LogFailedFileRead(this ILogger logger, string name, Exception exception);
 
     [LoggerMessage(EventId = 8007, Level = LogLevel.Warning, Message = "Request for key {Key} has been cancelled")]
-    public static partial void LogCancelledRequest(this ILogger logger, string key);
+    public static partial void LogCancelledRequest(this ILogger logger, string key, OperationCanceledException? operationCanceledException = null);
 
     [LoggerMessage(EventId = 8008, Level = LogLevel.Information, Message = "Key {Key} has been added. Value:\n{RawValue}")]
     public static partial void LogKeyAdd(this ILogger logger, string key, string rawValue);
@@ -45,4 +45,16 @@ internal static partial class LoggerExtensions
 
     [LoggerMessage(EventId = 8014, Level = LogLevel.Error, Message = "Cannot sort entries")]
     public static partial void LogSortError(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 8014, Level = LogLevel.Warning, Message = "Cache optimization takes a lot of time: {ElapsedTime}")]
+    public static partial void LogSlowSorting(this ILogger logger, TimeSpan elapsedTime);
+
+    [LoggerMessage(EventId = 8015, Level = LogLevel.Error, Message = "Cannot delete expired data for key {Key}")]
+    public static partial void LogExpiredKeyDeleteError(this ILogger logger, string key, Exception? exception = null);
+
+    [LoggerMessage(EventId = 8016, Level = LogLevel.Warning, Message = "Request has been cancelled")]
+    public static partial void LogCancelledRequest(this ILogger logger, OperationCanceledException operationCanceledException);
+
+    [LoggerMessage(EventId = 8017, Level = LogLevel.Error, Message = "Cannot delete key with {Key}")]
+    public static partial void LogFailedKeyDelete(this ILogger logger, string key, Exception exception);
 }

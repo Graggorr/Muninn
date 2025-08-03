@@ -4,42 +4,42 @@ using Muninn.Kernel.Resident;
 
 namespace Muninn.Kernel;
 
-internal class CacheManager(IPersistentCache persistentCache, IResidentCache residentCache, IPersistentQueue persistentQueue, ISortedResidentCache sortedResidentCache) : ICacheManager
+internal class CacheManager(IPersistentCache persistentCache, IResidentCache residentCache, IBackgroundManager persistentQueue, ISortedResidentCache sortedResidentCache) : ICacheManager
 {
     private readonly IPersistentCache _persistentCache = persistentCache;
     private readonly IResidentCache _residentCache = residentCache;
-    private readonly IPersistentQueue _persistentQueue = persistentQueue;
+    private readonly IBackgroundManager _persistentQueue = persistentQueue;
     private readonly ISortedResidentCache _sortedResidentCache = sortedResidentCache;
 
     private bool _isInitialized;
 
-    public Task<MuninResult> AddAsync(Entry entry, CancellationToken cancellationToken)
+    public async Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken)
     {
-        var residentResult = _residentCache.Add(entry, cancellationToken);
+        var residentResult = await _residentCache.AddAsync(entry, cancellationToken);
 
         if (residentResult.IsSuccessful)
         {
-            _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!));
+            _ = _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!), cancellationToken);
         }
 
-        return Task.FromResult(residentResult);
+        return residentResult;
     }
 
-    public Task<MuninResult> RemoveAsync(string key, CancellationToken cancellationToken)
+    public async Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken)
     {
-        var residentResult = _residentCache.Remove(key, cancellationToken);
+        var residentResult = await _residentCache.RemoveAsync(key, cancellationToken);
 
         if (residentResult.IsSuccessful)
         {
-            _persistentQueue.EnqueueDeletionAsync(new(new(key, [])));
+            _ = _persistentQueue.EnqueueDeletionAsync(new(new(key, [], null!, TimeSpan.Zero)), cancellationToken);
         }
 
-        return Task.FromResult(residentResult);
+        return residentResult;
     }
 
-    public async Task<MuninResult> GetAsync(string key, CancellationToken cancellationToken)
+    public async Task<MuninnResult> GetAsync(string key, CancellationToken cancellationToken)
     {
-        var tasks = new List<Task<MuninResult>>(2)
+        var tasks = new List<Task<MuninnResult>>(2)
         {
             Task.Factory.StartNew(() => _residentCache.Get(key, cancellationToken), cancellationToken),
         };
@@ -81,28 +81,28 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         return await GetCoreAsync(tasks, entries => entries.Any());
     }
 
-    public Task<MuninResult> UpdateAsync(Entry entry, CancellationToken cancellationToken)
+    public async Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken)
     {
-        var residentResult = _residentCache.Update(entry, cancellationToken);
+        var residentResult = await _residentCache.UpdateAsync(entry, cancellationToken);
 
         if (residentResult.IsSuccessful)
         {
-            _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!));
+            _ = _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!), cancellationToken);
         }
 
-        return Task.FromResult(residentResult);
+        return residentResult;
     }
 
-    public Task<MuninResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
+    public async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
     {
-        var residentResult = _residentCache.Insert(entry, cancellationToken);
+        var residentResult = await _residentCache.InsertAsync(entry, cancellationToken);
 
         if (residentResult.IsSuccessful)
         {
-            _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!));
+            _ = _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!), cancellationToken);
         }
 
-        return Task.FromResult(residentResult);
+        return residentResult;
     }
 
     public async Task InitializeAsync()
@@ -115,14 +115,10 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         _isInitialized = true;
         _persistentCache.Initialize();
         var entries = await _persistentCache.GetAllAsync(CancellationToken.None);
-        _residentCache.Initialize(entries.ToArray());
+        await _residentCache.InitializeAsync(entries.ToArray());
     }
 
-    public void Clear(CancellationToken cancellationToken)
-    {
-        _residentCache.Clear();
-        _persistentCache.ClearAsync(cancellationToken);
-    }
+    public Task ClearAsync(CancellationToken cancellationToken) => Task.WhenAll(_residentCache.ClearAsync(cancellationToken), _persistentCache.ClearAsync(cancellationToken));
 
     private static async Task<T> GetCoreAsync<T>(List<Task<T>> tasks, Func<T, bool> successfulCondition)
     {
