@@ -5,7 +5,7 @@ using Muninn.Kernel.Models;
 
 namespace Muninn.Kernel.Resident;
 
-internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfiguration configuration, Locker locker, IFilterManager filterManager) : IResidentCache
+internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfiguration configuration, IFilterManager filterManager) : IResidentCache
 {
     private class ResidentCacheIndex
     {
@@ -16,86 +16,74 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
     private readonly ILogger _logger = logger;
     private readonly IFilterManager _filterManager = filterManager;
-    private readonly Locker _locker = locker;
+    private readonly SemaphoreSlim _semaphoreSlim = new(1);
     private readonly ResidentConfiguration _configuration = configuration;
 
     private ResidentCacheIndex[] _indexes = new ResidentCacheIndex[configuration.ArrayIncreasementValue];
     private Entry?[] _entries = new Entry[configuration.ArrayIncreasementValue];
     private bool _isResizeCalled;
 
-    public MuninResult Add(Entry entry, CancellationToken cancellationToken)
+    public async Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken)
     {
         var index = TryFindIndex(entry.Hashcode, out var freeIndex);
 
         if (index is not NOT_VALID_INDEX)
         {
-            return new MuninResult(false, null, $"Entry with a key {entry.Key} already exists");
-        }
-
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return GetCancelledResult(entry.Key);
+            return GetFailedResult($"Entry with a key {entry.Key} already exists", false);
         }
 
         if (freeIndex is NOT_VALID_INDEX)
         {
-            IncreaseArraySize();
+            await IncreaseArraySizeAsync(cancellationToken);
             freeIndex = GetFreeIndex();
         }
 
-        return AddCore(entry, freeIndex);
+        return await AddCoreAsync(entry, freeIndex, cancellationToken);
     }
 
-    public MuninResult Remove(string key, CancellationToken cancellationToken)
+    public async Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken)
     {
         var hashcode = key.GetHashCode();
         var index = TryFindIndex(hashcode, out _);
 
         if (index is NOT_VALID_INDEX)
         {
-            return new MuninResult(true, null);
-        }
-
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return GetCancelledResult(key);
+            return new MuninnResult(true, null);
         }
 
         try
         {
-            _locker.ReadLock();
             var entry = _entries[index];
-            _locker.ReadReleaseLock();
-            _locker.WriteLock();
+            await _semaphoreSlim.WaitAsync(cancellationToken);
             _entries[index] = null;
             _indexes[index].IsUsed = false;
 
-            return new MuninResult(true, entry);
+            return new MuninnResult(true, entry);
         }
         catch (Exception exception)
         {
-            return new MuninResult(false, null, $"Cannot remove entry with key {key}", exception);
+            _logger.LogFailedKeyDelete(key, exception);
+
+            return GetFailedResult($"Cannot remove entry with key {key}", false, exception);
         }
         finally
         {
-            _locker.WriteReleaseLock();
+            _semaphoreSlim.Release(1);
         }
     }
 
-    public MuninResult Get(string key, CancellationToken cancellationToken)
+    public MuninnResult Get(string key, CancellationToken cancellationToken)
     {
         var index = TryFindIndex(key.GetHashCode(), out _);
 
         if (index is NOT_VALID_INDEX)
         {
-            return new MuninResult(false, null, $"Key {key} is not found");
+            return new MuninnResult(false, null, $"Key {key} is not found");
         }
 
-        _locker.ReadLock();
         var entry = _entries[index];
-        _locker.ReadReleaseLock();
 
-        return new MuninResult(entry is not null, entry);
+        return new MuninnResult(entry is not null, entry);
     }
 
     public IEnumerable<Entry> GetAll(CancellationToken cancellationToken)
@@ -113,47 +101,44 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         return _filterManager.FilterEntryValues(_entries, chunks, cancellationToken);
     }
 
-    public MuninResult Update(Entry entry, CancellationToken cancellationToken)
+    public Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken)
     {
         var index = TryFindIndex(entry.Hashcode, out _);
 
-        return index is NOT_VALID_INDEX ? new MuninResult(false, null, "Entry is not found in the cache") : UpdateCore(entry, index);
+        return index is NOT_VALID_INDEX ? GetFailedResultAsync("Entry is not found in the cache") : UpdateCoreAsync(entry, index, cancellationToken);
     }
 
-    public MuninResult Insert(Entry entry, CancellationToken cancellationToken)
+    public async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
     {
         var index = TryFindIndex(entry.Hashcode, out var freeIndex);
 
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return GetCancelledResult(entry.Key);
-        }
-
         if (index is NOT_VALID_INDEX)
         {
-            return AddCore(entry, index);
+            return await AddCoreAsync(entry, index, cancellationToken);
         }
 
         if (freeIndex is NOT_VALID_INDEX)
         {
-            IncreaseArraySize();
+            await IncreaseArraySizeAsync(cancellationToken);
             freeIndex = GetFreeIndex();
         }
 
-        return UpdateCore(entry, freeIndex);
+        return await UpdateCoreAsync(entry, freeIndex, cancellationToken);
     }
 
-    public void Clear()
+    public async Task ClearAsync(CancellationToken cancellationToken)
     {
-        _locker.WriteLock();
+        await _semaphoreSlim.WaitAsync(cancellationToken);
         _entries = new Entry[_configuration.ArrayIncreasementValue];
         _indexes = new ResidentCacheIndex[_configuration.ArrayIncreasementValue];
-        _locker.WriteReleaseLock();
+        _semaphoreSlim.Release(1);
         GC.Collect();
     }
 
-    public void Initialize(Entry[] entries)
+    public async Task InitializeAsync(Entry[] entries)
     {
+        await _semaphoreSlim.WaitAsync();
+
         if (entries.Length < _configuration.ArrayIncreasementValue)
         {
             _entries = new Entry[_configuration.ArrayIncreasementValue];
@@ -178,6 +163,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             };
         }
 
+        _semaphoreSlim.Release(1);
         GC.Collect();
     }
 
@@ -185,7 +171,6 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     private int TryFindIndex(int hashcode, out int freeIndex)
     {
         freeIndex = NOT_VALID_INDEX;
-        _locker.ReadLock();
 
         for (var i = 0; i < _entries.Length; i++)
         {
@@ -195,8 +180,6 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             {
                 if (entry.Hashcode == hashcode)
                 {
-                    _locker.ReadReleaseLock();
-
                     return i;
                 }
 
@@ -228,20 +211,15 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             }
         }
 
-        _locker.ReadReleaseLock();
-
         return freeIndex;
     }
 
     private int GetFreeIndex()
     {
-        _locker.ReadLock();
-
         for (var i = _indexes.Length - 1; i >= 0; i--)
         {
             if (!_indexes[i].IsUsed)
             {
-                _locker.ReadReleaseLock();
                 _indexes[i].IsUsed = true;
 
                 return i;
@@ -250,34 +228,29 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
         var oldEntry = _entries.OrderBy(entry => entry?.LastModificationTime).First();
         var index = Array.IndexOf(_entries, oldEntry);
-        _locker.ReadReleaseLock();
 
         return index;
     }
 
-    private void IncreaseArraySize()
+    private async Task<bool> IncreaseArraySizeAsync(CancellationToken cancellationToken)
     {
         if (_isResizeCalled)
         {
-            while (_isResizeCalled)
-            {
+            await _semaphoreSlim.WaitAsync(cancellationToken);
+            _semaphoreSlim.Release(1);
 
-            }
-
-            return;
+            return true;
         }
 
         _isResizeCalled = true;
 
         try
         {
-            _locker.ReadLock();
             var entries = new Entry?[_entries.Length + _configuration.ArrayIncreasementValue];
             var indexes = new ResidentCacheIndex[_indexes.Length + _configuration.ArrayIncreasementValue];
-            _locker.ReadReleaseLock();
-            _locker.WriteLockLong();
+            await _semaphoreSlim.WaitAsync(cancellationToken);
 
-            for (var i = 0; i < _entries.Length; i++) // _entries.Length has to be equal to _indexes.Length
+            for (var i = 0; i < _entries.Length; i++)
             {
                 entries[i] = _entries[i];
                 indexes[i] = _indexes[i];
@@ -285,92 +258,129 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             }
 
             _entries = entries;
-            _locker.WriteReleaseLock();
+
+            return true;
+        }
+        catch (OperationCanceledException operationCanceledException)
+        {
+            _logger.LogCancelledRequest(operationCanceledException);
+
+            return false;
         }
         finally
         {
             _isResizeCalled = false;
+            _semaphoreSlim.Release(1);
         }
     }
 
-    private void DecreaseArraySize()
+    private async Task<bool> DecreaseArraySizeAsync(CancellationToken cancellationToken)
     {
-        _locker.ReadLock();
+        if (_isResizeCalled)
+        {
+            await _semaphoreSlim.WaitAsync(cancellationToken);
+            _semaphoreSlim.Release(1);
+
+            return true;
+        }
+
         var count = _entries.Count();
         var array = new Entry?[count + _configuration.ArrayIncreasementValue];
 
-        for (var i = 0; i < count; i++)
+        try
         {
-            array[i] = _entries[i];
-        }
+            for (var i = 0; i < count; i++)
+            {
+                array[i] = _entries[i];
+            }
 
-        _locker.ReadReleaseLock();
-        _locker.WriteLock();
-        _entries = array;
-        _locker.WriteReleaseLock();
+            await _semaphoreSlim.WaitAsync(cancellationToken);
+            _entries = array;
+
+            return true;
+        }
+        catch (OperationCanceledException operationCanceledException)
+        {
+            _logger.LogCancelledRequest(operationCanceledException);
+
+            return false;
+        }
+        finally
+        {
+            _semaphoreSlim.Release(1);
+        }
     }
 
-    private MuninResult AddCore(Entry entry, int index)
+    private async Task<MuninnResult> AddCoreAsync(Entry entry, int index, CancellationToken cancellationToken)
     {
         try
         {
-            _locker.WriteLock();
+            await _semaphoreSlim.WaitAsync(cancellationToken);
             _entries[index] = entry;
             _logger.LogKeyAdd(entry.Key, entry.DecodeValue());
 
-            return new MuninResult(true, entry);
+            return new MuninnResult(true, entry);
+        }
+        catch (OperationCanceledException operationCanceledException)
+        {
+            _logger.LogCancelledRequest(entry.Key, operationCanceledException);
+
+            return await GetCancelledResultAsync(entry.Key);
         }
         catch (Exception exception)
         {
             _logger.LogFailedKeyInsert(entry.Key, entry.DecodeValue(), exception);
             _indexes[index].IsUsed = false;
 
-            return new MuninResult(false, null, "Cannot add new entry into the cache", exception);
+            return new MuninnResult(false, null, "Cannot add new entry into the cache", exception);
         }
         finally
         {
-            _locker.WriteReleaseLock();
+            _semaphoreSlim.Release(1);
         }
     }
 
-    private MuninResult UpdateCore(Entry entry, int index)
+    private async Task<MuninnResult> UpdateCoreAsync(Entry entry, int index, CancellationToken cancellationToken)
     {
         Entry? oldEntry = null;
 
         try
         {
-            _locker.ReadLock();
-            oldEntry = _entries[index];
-            _locker.ReadReleaseLock();
-            _locker.WriteLock();
+            oldEntry = _entries[index]!;
+            entry.CreationTime = oldEntry.CreationTime;
+            await _semaphoreSlim.WaitAsync(cancellationToken);
             _entries[index] = entry;
-            _logger.LogKeyUpdate(entry.Key, oldEntry!.DecodeValue(), entry.DecodeValue());
+            _logger.LogKeyUpdate(entry.Key, oldEntry.DecodeValue(), entry.DecodeValue());
 
-            return new MuninResult(true, entry);
+            return new MuninnResult(true, entry);
         }
         catch (Exception exception)
         {
-            if (!_locker.IsWriteLocked)
+            if (oldEntry is not null)
             {
-                _locker.WriteLock();
+                _entries[index] = oldEntry;
             }
 
-            _entries[index] = oldEntry;
-            _indexes[index].IsUsed = false;
             _logger.LogFailedKeyUpdate(entry.Key, entry.DecodeValue(), exception);
 
-            return new MuninResult(false, null, "Cannot update entry in the cache", exception);
+            return new MuninnResult(false, null, "Cannot update entry in the cache", exception);
         }
         finally
         {
-            _locker.WriteReleaseLock();
+            _semaphoreSlim.Release(1);
         }
     }
 
-    private MuninResult GetCancelledResult(string key)
+    private MuninnResult GetCancelledResult(string key)
     {
         _logger.LogCancelledRequest(key);
 
-        return new(false, null, "Cancellation has been requested", null, true);
+        return GetFailedResult("Cancellation has been requested", true);
     }
+
+    private static MuninnResult GetFailedResult(string message, bool isCancelled, Exception? exception = null) => new(false, null, message, exception, isCancelled);
+
+    private Task<MuninnResult> GetCancelledResultAsync(string key) => Task.FromResult(GetCancelledResult(key));
+
+    private static Task<MuninnResult> GetFailedResultAsync(string message) => Task.FromResult(GetFailedResult(message, false));
 }

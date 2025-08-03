@@ -6,7 +6,7 @@ public interface ISortedResidentCache
 {
     public bool IsSorting { get; }
 
-    public void Sort(Entry[] entries);
+    public Task SortAsync(Entry[] entries);
 
-    public MuninResult GetByKey(string key);
+    public MuninnResult GetByKey(string key);
 }

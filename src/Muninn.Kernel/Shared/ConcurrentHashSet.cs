@@ -1,11 +1,21 @@
 ﻿using System.Collections;
 
-namespace Muninn.Kernel.Persistent;
+namespace Muninn.Kernel.Shared;
 
-internal class ConcurrentHashSet<T> : IDisposable, IEnumerable<T>
+public class ConcurrentHashSet<T> : IDisposable, IEnumerable<T>
 {
     private readonly ReaderWriterLockSlim _lock = new(LockRecursionPolicy.SupportsRecursion);
-    private readonly HashSet<T> _hashSet = [];
+    private readonly HashSet<T> _hashSet;
+
+    public ConcurrentHashSet()
+    {
+        _hashSet = [];
+    }
+
+    public ConcurrentHashSet(IEnumerable<T> enumerable)
+    {
+        _hashSet = [..enumerable];
+    }
 
     public int Count
     {
@@ -68,23 +78,6 @@ internal class ConcurrentHashSet<T> : IDisposable, IEnumerable<T>
         try
         {
             return _hashSet.Contains(item);
-        }
-        finally
-        {
-            if (_lock.IsReadLockHeld)
-            {
-                _lock.ExitReadLock();
-            }
-        }
-    }
-
-    public bool Any(Func<T, bool> predicate)
-    {
-        _lock.EnterReadLock();
-
-        try
-        {
-            return _hashSet.Any(predicate);
         }
         finally
         {

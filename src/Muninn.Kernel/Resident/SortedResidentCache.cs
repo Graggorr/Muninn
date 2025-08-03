@@ -7,7 +7,7 @@ namespace Muninn.Kernel.Resident;
 
 internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, ResidentConfiguration configuration) : ISortedResidentCache
 {
-    public class EntryComparer : IComparer<Entry>
+    private struct EntryComparer : IComparer<Entry>
     {
         public int Compare(Entry? x, Entry? y)
         {
@@ -30,18 +30,20 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, Residen
         }
     }
 
+    private readonly SemaphoreSlim _semaphore = new(0);
     private readonly ILogger _logger = logger;
     private Entry?[] _entries = [];
     internal const string MESSAGE = "Sorted";
 
     public bool IsSorting { get; private set; }
 
-    public void Sort(Entry[] entries)
+    public async Task SortAsync(Entry[] entries)
     {
         var oldReference = _entries;
 
         try
         {
+            await _semaphore.WaitAsync();
             IsSorting = true;
             Array.Sort(entries, new EntryComparer());
             _entries = entries;
@@ -54,13 +56,19 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, Residen
         finally
         {
             IsSorting = false;
+            _semaphore.Release(1);
         }
     }
 
-    public MuninResult GetByKey(string key)
+    public MuninnResult GetByKey(string key)
     {
-        var index = Array.BinarySearch(_entries, new Entry(key, []));
+        if (IsSorting)
+        {
+            return new MuninnResult(false, null);
+        }
 
-        return int.IsNegative(index) ? new MuninResult(false, null) : new MuninResult(true, _entries[index], MESSAGE);
+        var index = Array.BinarySearch(_entries, Entry.CreateFilterEntry(key));
+
+        return int.IsNegative(index) ? new MuninnResult(false, null) : new MuninnResult(true, _entries[index], MESSAGE);
     }
 }

@@ -1,7 +1,7 @@
 ﻿using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
 
-namespace Muninn.Kernel;
+namespace Muninn.Kernel.Shared;
 
 internal class FilterManager : IFilterManager
 {

@@ -1,6 +1,8 @@
-﻿namespace Muninn.Kernel.Models;
+﻿using System.Text;
 
-public class Entry(string key, byte[] value) : IComparable<Entry>
+namespace Muninn.Kernel.Models;
+
+public class Entry(string key, byte[] value, Encoding encoding, TimeSpan lifeTime) : IComparable<Entry>
 {
     public int Hashcode { get; } = key.GetHashCode();
 
@@ -8,13 +10,15 @@ public class Entry(string key, byte[] value) : IComparable<Entry>
 
     public byte[] Value { get; set; } = value;
 
-    public TimeSpan LifeTime { get; set; } = TimeSpan.FromDays(1);
+    public TimeSpan LifeTime { get; set; } = lifeTime;
 
-    public DateTime CreationTime { get; init; } = DateTime.UtcNow;
+    public DateTime CreationTime { get; set; } = DateTime.UtcNow;
 
-    public DateTime LastModificationTime { get; set; }
+    public DateTime LastModificationTime { get; set; } = DateTime.UtcNow;
 
-    public string EncodingName { get; set; } = "ASCII";
+    public Encoding Encoding { get; set; } = encoding;
+
+    public static Entry CreateFilterEntry(string key) => new(key, [], Encoding.ASCII, default);
 
     public int CompareTo(Entry? other)
     {
