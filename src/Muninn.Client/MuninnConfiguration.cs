@@ -2,11 +2,23 @@
 
 namespace Muninn;
 
+/// <summary>
+/// Configuration for the server connection for <see cref="IMuninnClient"/>
+/// </summary>
 public class MuninnConfiguration
 {
+    /// <summary>
+    /// Name of the default encoding for values
+    /// </summary>
     public string EncodingName { get; set; } = Encoding.ASCII.EncodingName;
 
+    /// <summary>
+    /// Host name of the muninn server
+    /// </summary>
     public string HostName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// A unique key to get access to the server
+    /// </summary>
     public string ApiKey { get; set; } = string.Empty;
 }

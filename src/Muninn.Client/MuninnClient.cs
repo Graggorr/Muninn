@@ -7,6 +7,12 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace Muninn;
 
+/// <summary>
+/// Represents an implementation of <see cref="IMuninnClient"/>
+/// </summary>
+/// <param name="logger">A configured instance for logs</param>
+/// <param name="httpClientFactory">Factory of the <see cref="HttpClient"/></param>
+/// <param name="muninnConfiguration">Configuration for server connection</param>
 internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory httpClientFactory,
     IOptions<MuninnConfiguration> muninnConfiguration) : IMuninnClient
 {
