@@ -92,7 +92,13 @@ public static class Endpoints
 
         if (result.IsCancelled)
         {
-            return Results.StatusCode(StatusCodes.Status408RequestTimeout);
+            var problemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status408RequestTimeout,
+                Detail = "Timeout has been risen",
+            };
+
+            return Results.Problem(problemDetails);
         }
 
         if (result.Exception is not null)
@@ -100,6 +106,6 @@ public static class Endpoints
             return Results.BadRequest(result.Exception.Message);
         }
 
-        return isCommand ? Results.BadRequest(result.Message) : Results.NotFound();
+        return isCommand ? Results.BadRequest(result.Message) : Results.NotFound(result.Message);
     }
 }
