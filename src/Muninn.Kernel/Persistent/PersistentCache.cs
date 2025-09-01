@@ -86,7 +86,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
         foreach (var streamWriter in _streamWriters)
         {
-            _ = streamWriter.DisposeAsync();
+            await streamWriter.DisposeAsync();
         }
 
         var filePaths = Directory.GetFiles(_directoryPath, $"*{FILE_EXTENSION}");

@@ -11,7 +11,7 @@ public static class Endpoints
     {
         var group = app.MapGroup("muninn");
         group.MapPost("{key}", PostAsync);
-        group.MapPost("insert/{key}", InsertAsync);
+        group.MapPost("{key}/insert", InsertAsync);
         group.MapPut("{key}", PutAsync);
         group.MapDelete("{key}", DeleteAsync);
         group.MapDelete(string.Empty, DeleteAll);

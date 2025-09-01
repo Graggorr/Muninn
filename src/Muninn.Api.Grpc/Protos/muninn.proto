@@ -1,0 +1,81 @@
+﻿syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+option csharp_namespace = "Muninn.Api.Grpc";
+
+package greet;
+
+service Muninn {
+	rpc AddAsync (AddRequest) returns (AddReply);
+	rpc GetAsync (GetRequest) returns (GetReply);
+	rpc UpdateAsync (UpdateRequest) returns (UpdateReply);
+	rpc InsertAsync (InsertRequest) returns (InsertReply);
+	rpc DeleteAsync (DeleteRequest) returns (DeleteReply);
+}
+
+// AddAsync
+
+message AddRequest {
+	string key = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+	google.protobuf.Duration life_time = 4;
+}
+
+message AddReply {
+	bool is_successful = 1;
+	bytes value = 2;
+}
+
+// GetAsync
+
+message GetRequest {
+	string key = 1;
+}
+
+message GetReply {
+	bool is_successful = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+}
+
+// UpdateAsync
+
+message UpdateRequest {
+	string key = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+	google.protobuf.Duration life_time = 4;
+}
+
+message UpdateReply {
+	bool is_successful = 1;
+	bytes value = 2;
+}
+
+// InsertAsync
+
+message InsertRequest {
+	string key = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+	google.protobuf.Duration life_time = 4;
+}
+
+message InsertReply {
+	bool is_successful = 1;
+	bytes value = 2;
+}
+
+// DeleteAsync
+
+message DeleteRequest {
+	string key = 1;
+}
+
+message DeleteReply {
+	bool is_successful = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+}

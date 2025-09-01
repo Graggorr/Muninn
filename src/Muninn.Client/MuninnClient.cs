@@ -21,7 +21,6 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
 
     private readonly ILogger _logger = logger;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
-    private readonly MuninnConfiguration _muninnConfiguration = muninnConfiguration.Value;
     private readonly Encoding _encoding = Encoding.GetEncoding(muninnConfiguration.Value.EncodingName);
     private readonly TimeSpan _defaultLifeTime = TimeSpan.FromHours(1);
 

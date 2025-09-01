@@ -19,7 +19,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     private readonly SemaphoreSlim _semaphoreSlim = new(1);
     private readonly ResidentConfiguration _configuration = configuration;
 
-    private ResidentCacheIndex[] _indexes = new ResidentCacheIndex[configuration.ArrayIncreasementValue];
+    private ResidentCacheIndex[] _indexes = CreateIndexes(configuration.ArrayIncreasementValue);
     private Entry?[] _entries = new Entry[configuration.ArrayIncreasementValue];
     private bool _isResizeCalled;
 
@@ -205,13 +205,14 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
                     {
                         _indexes[i].IsUsed = true;
                         freeIndex = i;
-                        break;
+
+                        return NOT_VALID_INDEX;
                     }
                 }
             }
         }
 
-        return freeIndex;
+        return NOT_VALID_INDEX;
     }
 
     private int GetFreeIndex()
@@ -383,4 +384,16 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     private Task<MuninnResult> GetCancelledResultAsync(string key) => Task.FromResult(GetCancelledResult(key));
 
     private static Task<MuninnResult> GetFailedResultAsync(string message) => Task.FromResult(GetFailedResult(message, false));
+
+    private static ResidentCacheIndex[] CreateIndexes(int count)
+    {
+        var indexes = new ResidentCacheIndex[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            indexes[i] = new ResidentCacheIndex();
+        }
+
+        return indexes;
+    }
 }
