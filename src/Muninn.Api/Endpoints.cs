@@ -11,7 +11,7 @@ public static class Endpoints
     {
         var group = app.MapGroup("muninn");
         group.MapPost("{key}", PostAsync);
-        group.MapPost("insert/{key}", InsertAsync);
+        group.MapPost("{key}/insert", InsertAsync);
         group.MapPut("{key}", PutAsync);
         group.MapDelete("{key}", DeleteAsync);
         group.MapDelete(string.Empty, DeleteAll);
@@ -76,9 +76,9 @@ public static class Endpoints
         return GetResponse(result, true);
     }
 
-    private static IResult DeleteAll([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
+    private static async Task<IResult> DeleteAll([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
-        cacheManager.ClearAsync(cancellationToken);
+        await cacheManager.ClearAsync(cancellationToken);
 
         return Results.Ok();
     }

@@ -78,6 +78,13 @@ public interface IMuninnClient
     public Task<MuninnResult<T>> RemoveAsync<T>(string key, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Clears cache
+    /// </summary>
+    /// <param name="cancellationToken">A <see cref="CancellationToken"/></param>
+    /// <returns>Completed <see cref="Task"/></returns>
+    public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns an item from the cache
     /// </summary>
     /// <typeparam name="T">Generic type of the value</typeparam>

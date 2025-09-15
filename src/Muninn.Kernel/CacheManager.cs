@@ -125,13 +125,8 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         var task = await Task.WhenAny(tasks);
         var result = await task;
 
-        if (successfulCondition(result))
-        {
-            return result;
-        }
-
-        tasks.Remove(task);
-
-        return await tasks.First();
+        return successfulCondition(result) 
+            ? result 
+            : await tasks.First(other => !other.Equals(task));
     }
 }

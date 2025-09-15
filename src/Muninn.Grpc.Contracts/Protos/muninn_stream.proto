@@ -1,0 +1,36 @@
+﻿syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+option csharp_namespace = "Muninn.Grpc";
+
+package stream;
+
+service MuninnStream {
+	rpc GetAllAsync (GetAllRequest) returns (stream GetAllReply);
+	rpc DeleteAllAsync (DeleteAllRequest) returns (stream DeleteAllReply);
+}
+
+// GetAllAsync
+
+message GetAllRequest {
+	int32 type_code = 1;
+}
+
+message GetAllReply {
+	string key = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+}
+
+// DeleteAllAsync
+
+message DeleteAllRequest {
+	bool return_values = 1;
+}
+
+message DeleteAllReply {
+	string key = 1;
+	bytes value = 2;
+	string encoding_name = 3;
+}
