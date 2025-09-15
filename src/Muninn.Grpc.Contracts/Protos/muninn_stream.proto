@@ -2,7 +2,7 @@
 
 import "google/protobuf/duration.proto";
 
-option csharp_namespace = "Muninn.Api.Grpc";
+option csharp_namespace = "Muninn.Grpc";
 
 package stream;
 
@@ -14,7 +14,7 @@ service MuninnStream {
 // GetAllAsync
 
 message GetAllRequest {
-	;
+	int32 type_code = 1;
 }
 
 message GetAllReply {

@@ -76,9 +76,9 @@ public static class Endpoints
         return GetResponse(result, true);
     }
 
-    private static IResult DeleteAll([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
+    private static async Task<IResult> DeleteAll([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
-        cacheManager.ClearAsync(cancellationToken);
+        await cacheManager.ClearAsync(cancellationToken);
 
         return Results.Ok();
     }

@@ -1,20 +1,21 @@
-﻿syntax = "proto3";
+syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-option csharp_namespace = "Muninn.Api.Grpc";
+option csharp_namespace = "Muninn.Grpc";
 
-package greet;
+package Client;
 
-service Muninn {
-	rpc AddAsync (AddRequest) returns (AddReply);
-	rpc GetAsync (GetRequest) returns (GetReply);
-	rpc UpdateAsync (UpdateRequest) returns (UpdateReply);
-	rpc InsertAsync (InsertRequest) returns (InsertReply);
-	rpc DeleteAsync (DeleteRequest) returns (DeleteReply);
+service MuninnService {
+	rpc Add (AddRequest) returns (AddReply);
+	rpc Get (GetRequest) returns (GetReply);
+	rpc Update (UpdateRequest) returns (UpdateReply);
+	rpc Insert (InsertRequest) returns (InsertReply);
+	rpc Delete (DeleteRequest) returns (DeleteReply);
 }
 
-// AddAsync
+
+// Add
 
 message AddRequest {
 	string key = 1;
@@ -28,7 +29,7 @@ message AddReply {
 	bytes value = 2;
 }
 
-// GetAsync
+// Get
 
 message GetRequest {
 	string key = 1;
@@ -40,7 +41,7 @@ message GetReply {
 	string encoding_name = 3;
 }
 
-// UpdateAsync
+// Update
 
 message UpdateRequest {
 	string key = 1;
@@ -54,7 +55,7 @@ message UpdateReply {
 	bytes value = 2;
 }
 
-// InsertAsync
+// Insert
 
 message InsertRequest {
 	string key = 1;
@@ -68,7 +69,7 @@ message InsertReply {
 	bytes value = 2;
 }
 
-// DeleteAsync
+// Delete
 
 message DeleteRequest {
 	string key = 1;

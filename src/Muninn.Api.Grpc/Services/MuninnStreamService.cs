@@ -1,9 +1,8 @@
 ﻿using Grpc.Core;
-using Muninn.Api.Grpc.Extensions;
 using Muninn.Kernel.Common;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
+using Muninn.Grpc.Contracts.Extensions;
+using Muninn.Grpc;
 
 namespace Muninn.Api.Grpc.Services;
 
@@ -16,6 +15,11 @@ public class MuninnStreamService(ICacheManager cacheManager) : MuninnStream.Muni
     {
         var entries = await _cacheManager.GetAllAsync(context.CancellationToken);
         var sortedSet = entries.ToImmutableSortedSet();
+
+        if (sortedSet.IsEmpty)
+        {
+            return;
+        }
 
         await Parallel.ForEachAsync(sortedSet, new ParallelOptions
         {
@@ -34,24 +38,26 @@ public class MuninnStreamService(ICacheManager cacheManager) : MuninnStream.Muni
 
     public override async Task DeleteAllAsync(DeleteAllRequest request, IServerStreamWriter<DeleteAllReply> responseStream, ServerCallContext context)
     {
-        var mappedResponses = new List<DeleteAllReply>();
-
         if (request.ReturnValues)
         {
             var entities = await _cacheManager.GetAllAsync(context.CancellationToken);
-            mappedResponses = entities.Select(entity => new DeleteAllReply
+            var mappedResponses = entities.Select(entity => new DeleteAllReply
             {
                 EncodingName = entity.Encoding.EncodingName,
                 Key = entity.Key,
                 Value = entity.Value.ToByteString(),
             }).ToList();
+
+            if (mappedResponses.Count > 0)
+            {
+                await Parallel.ForEachAsync(mappedResponses, new ParallelOptions
+                {
+                    CancellationToken = context.CancellationToken,
+                    MaxDegreeOfParallelism = mappedResponses.Count > MAX_PARALLEL_THREADS ? MAX_PARALLEL_THREADS : mappedResponses.Count,
+                }, async (mappedResponse, cancellationToken) => await responseStream.WriteAsync(mappedResponse, cancellationToken));
+            }
         }
 
         await _cacheManager.ClearAsync(context.CancellationToken);
-        await Parallel.ForEachAsync(mappedResponses, new ParallelOptions
-        {
-            CancellationToken = context.CancellationToken,
-            MaxDegreeOfParallelism = mappedResponses.Count > MAX_PARALLEL_THREADS ? MAX_PARALLEL_THREADS : mappedResponses.Count,
-        }, async (mappedResponse, cancellationToken) => await responseStream.WriteAsync(mappedResponse, cancellationToken));
     }
 }

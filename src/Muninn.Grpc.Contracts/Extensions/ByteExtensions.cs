@@ -1,6 +1,6 @@
 ﻿using Google.Protobuf;
 
-namespace Muninn.Api.Grpc.Extensions;
+namespace Muninn.Grpc.Contracts.Extensions;
 
 public static class ByteExtensions
 {

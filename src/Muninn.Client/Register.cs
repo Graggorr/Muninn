@@ -7,6 +7,8 @@ public static class Register
 {
     public static IServiceCollection AddMuninn(this IServiceCollection services)
     {
+        services.AddOptions<MuninnConfiguration>();
+        services.AddSingleton<IMuninnClient, MuninnClient>();
         var serviceProvider = services.BuildServiceProvider();
         services.AddHttpClient<MuninnClient>(nameof(MuninnClient), httpClient =>
         {
@@ -14,8 +16,6 @@ public static class Register
             httpClient.BaseAddress = new Uri(muninnConfiguration.HostName);
             httpClient.DefaultRequestHeaders.Add("x-api-key", muninnConfiguration.ApiKey);
         });
-        services.AddOptions<MuninnConfiguration>();
-        services.AddSingleton<IMuninnClient, MuninnClient>();
 
         return services;
     }

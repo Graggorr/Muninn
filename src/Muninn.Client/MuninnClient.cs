@@ -44,6 +44,26 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
 
     public Task<MuninnResult<T>> RemoveAsync<T>(string key, CancellationToken cancellationToken = default) => SendBodyLessAsync<T>($"muninn/{key}", HttpMethod.Delete, cancellationToken);
 
+    public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, "muninn");
+        var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+        if (response is null)
+        {
+            return new MuninnResult(false);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var message = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            _logger.LogBadRequest(string.Empty, message);
+        }
+
+        return new MuninnResult(response.IsSuccessStatusCode);
+    }
+
     public Task<MuninnResult<T>> GetAsync<T>(string key, CancellationToken cancellationToken = default) => SendBodyLessAsync<T>($"muninn/{key}", HttpMethod.Get, cancellationToken);
 
     public async Task<IEnumerable<T>> GetAllAsync<T>(CancellationToken cancellationToken = default)
@@ -58,7 +78,7 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
 
         var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 
-        return (await JsonSerializer.DeserializeAsync<IEnumerable<T>>(stream, JsonSerializerOptions.Web, cancellationToken).ConfigureAwait(false))!;
+        return await JsonSerializer.DeserializeAsync<IEnumerable<T>>(stream, JsonSerializerOptions.Web, cancellationToken).ConfigureAwait(false) ?? [];
     }
 
     private async Task<MuninnResult<T>> SendBodyLessAsync<T>(string path, HttpMethod httpMethod, CancellationToken cancellationToken)
