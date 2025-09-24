@@ -5,6 +5,7 @@ using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Muninn.Grpc.Contracts.Extensions;
+using Muninn.Grpc.Extensions;
 using static Muninn.Grpc.MuninnService;
 
 namespace Muninn.Grpc;
@@ -34,6 +35,8 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
         }
         catch (Exception exception)
         {
+            _logger.LogAddAsyncError(key, exception);
+            
             return GetResult<T>(exception);
         }
     }
@@ -55,6 +58,8 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
         }
         catch (Exception exception)
         {
+            _logger.LogInsertAsyncError(key, exception);
+            
             return GetResult<T>(exception);
         }
     }
@@ -76,6 +81,8 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
         }
         catch (Exception exception)
         {
+            _logger.LogUpdateAsyncError(key, exception);
+            
             return GetResult<T>(exception);
         }
     }
@@ -94,6 +101,8 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
         }
         catch (Exception exception)
         {
+            _logger.LogRemoveAsyncError(key, exception);
+            
             return GetResult<T>(exception);
         }
     }
@@ -109,6 +118,8 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
         }
         catch (Exception exception)
         {
+            _logger.LogClearAsyncError(exception);
+            
             return GetResult(exception);
         }
     }

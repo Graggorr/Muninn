@@ -19,10 +19,10 @@ internal static partial class LoggerExtensions
     [LoggerMessage(EventId = 8005, Level = LogLevel.Error, Message = "Cannot update value for key {Key} with new value {Value}", SkipEnabledCheck = true)] 
     public static partial void LogFailedKeyUpdate(this ILogger logger, string key, string value, Exception exception);
 
-    [LoggerMessage(EventId = 8006, Level = LogLevel.Error, Message = "Cannot read the file {Name}")]
+    [LoggerMessage(EventId = 8006, Level = LogLevel.Error, Message = "Cannot read the file {Name}", SkipEnabledCheck = true)]
     public static partial void LogFailedFileRead(this ILogger logger, string name, Exception exception);
 
-    [LoggerMessage(EventId = 8007, Level = LogLevel.Warning, Message = "Request for key {Key} has been cancelled")]
+    [LoggerMessage(EventId = 8007, Level = LogLevel.Warning, Message = "Request for key {Key} has been cancelled", SkipEnabledCheck = true)]
     public static partial void LogCancelledRequest(this ILogger logger, string key, OperationCanceledException? operationCanceledException = null);
 
     [LoggerMessage(EventId = 8008, Level = LogLevel.Information, Message = "Key {Key} has been added. Value:\n{RawValue}")]
@@ -43,18 +43,18 @@ internal static partial class LoggerExtensions
     [LoggerMessage(EventId = 8013, Level = LogLevel.Information, Message = "Key {Key} is not found")]
     public static partial void LogKeyIsNotFound(this ILogger logger, string key);
 
-    [LoggerMessage(EventId = 8014, Level = LogLevel.Error, Message = "Cannot sort entries")]
+    [LoggerMessage(EventId = 8014, Level = LogLevel.Error, Message = "Cannot sort entries", SkipEnabledCheck = true)]
     public static partial void LogSortError(this ILogger logger, Exception exception);
 
     [LoggerMessage(EventId = 8014, Level = LogLevel.Warning, Message = "Cache optimization takes a lot of time: {ElapsedTime}")]
     public static partial void LogSlowSorting(this ILogger logger, TimeSpan elapsedTime);
 
-    [LoggerMessage(EventId = 8015, Level = LogLevel.Error, Message = "Cannot delete expired data for key {Key}")]
+    [LoggerMessage(EventId = 8015, Level = LogLevel.Error, Message = "Cannot delete expired data for key {Key}", SkipEnabledCheck = true)]
     public static partial void LogExpiredKeyDeleteError(this ILogger logger, string key, Exception? exception = null);
 
-    [LoggerMessage(EventId = 8016, Level = LogLevel.Warning, Message = "Request has been cancelled")]
+    [LoggerMessage(EventId = 8016, Level = LogLevel.Warning, Message = "Request has been cancelled", SkipEnabledCheck = true)]
     public static partial void LogCancelledRequest(this ILogger logger, OperationCanceledException operationCanceledException);
 
-    [LoggerMessage(EventId = 8017, Level = LogLevel.Error, Message = "Cannot delete key with {Key}")]
+    [LoggerMessage(EventId = 8017, Level = LogLevel.Error, Message = "Cannot delete key with {Key}", SkipEnabledCheck = true)]
     public static partial void LogFailedKeyDelete(this ILogger logger, string key, Exception exception);
 }
