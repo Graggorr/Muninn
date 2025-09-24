@@ -28,7 +28,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         public TimeSpan LifeTime { get; init; } = lifeTime;
     }
 
-    private const string FILE_EXTENSION = ".muninn";
+    private const string FileExtension = ".muninn";
 
     private readonly ILogger _logger = logger;
     private readonly IFilterManager _filterManager = filterManager;
@@ -37,14 +37,14 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
     private readonly ConcurrentHashSet<StreamWriter> _streamWriters = new();
     private readonly SemaphoreSlim _semaphore = new(1);
 
-    private const string LIFETIME_STRING_FORMAT = "G";
-    private const int KEY_POSITION = 0;
-    private const int ENCODING_POSITION = 1;
-    private const int LIFETIME_POSITION = 2;
+    private const string LifetimeStringFormat = "G";
+    private const int KeyPosition = 0;
+    private const int EncodingPosition = 1;
+    private const int LifetimePosition = 2;
 
     public async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
     {
-        var fullPath = BuildFullPath(entry.Key, entry.Encoding.EncodingName, entry.LifeTime.ToString(LIFETIME_STRING_FORMAT));
+        var fullPath = BuildFullPath(entry.Key, entry.Encoding.EncodingName, entry.LifeTime.ToString(LifetimeStringFormat));
         await _semaphore.WaitAsync(cancellationToken);
         var streamResult = CreateStream(fullPath, entry.Encoding, true, entry.Value.Length);
 
@@ -89,7 +89,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             await streamWriter.DisposeAsync();
         }
 
-        var filePaths = Directory.GetFiles(_directoryPath, $"*{FILE_EXTENSION}");
+        var filePaths = Directory.GetFiles(_directoryPath, $"*{FileExtension}");
 
         foreach (var filePath in filePaths)
         {
@@ -187,7 +187,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
     public async Task<IEnumerable<Entry>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var filePaths = Directory.GetFiles(_directoryPath, $"*{FILE_EXTENSION}");
+        var filePaths = Directory.GetFiles(_directoryPath, $"*{FileExtension}");
 
         if (!filePaths.Any())
         {
@@ -312,14 +312,14 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
     private static EntryFileData GetEntryFileData(string fullPath)
     {
         var split = Path.GetFileNameWithoutExtension(fullPath).Split('-');
-        var key = split[KEY_POSITION];
-        var encoding = Encoding.GetEncoding(split[ENCODING_POSITION]);
-        var lifeTime = TimeSpan.Parse(split[LIFETIME_POSITION]);
+        var key = split[KeyPosition];
+        var encoding = Encoding.GetEncoding(split[EncodingPosition]);
+        var lifeTime = TimeSpan.Parse(split[LifetimePosition]);
 
         return new EntryFileData(key, encoding, lifeTime);
     }
 
-    private string BuildFullPath(string key, string encoding, string lifeTime) => Path.Combine(_directoryPath, $"{key}-{encoding}-{lifeTime}{FILE_EXTENSION}");
+    private string BuildFullPath(string key, string encoding, string lifeTime) => Path.Combine(_directoryPath, $"{key}-{encoding}-{lifeTime}{FileExtension}");
 
     private string GetFullPath(string key) => Directory.GetFiles(_directoryPath, key).FirstOrDefault() ?? string.Empty;
 

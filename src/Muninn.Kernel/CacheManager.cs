@@ -49,14 +49,7 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
             tasks.Add(Task.Factory.StartNew(() => _sortedResidentCache.GetByKey(key), cancellationToken));
         }
 
-        return await GetCoreAsync(tasks, result => result.IsSuccessful && (!result.Message.Equals(SortedResidentCache.MESSAGE) || DateTime.UtcNow - result.Entry!.LastModificationTime > TimeSpan.FromMinutes(5)));
-    }
-
-    public async Task<IEnumerable<Entry>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var entries = _residentCache.GetAll(cancellationToken).ToList();
-
-        return entries.Any() ? entries : await _persistentCache.GetAllAsync(cancellationToken);
+        return await GetCoreAsync(tasks, result => result.IsSuccessful && (!result.Message.Equals(SortedResidentCache.Message) || DateTime.UtcNow - result.Entry!.LastModificationTime > TimeSpan.FromMinutes(5)));
     }
 
     public async Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)

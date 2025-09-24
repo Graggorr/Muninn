@@ -24,62 +24,59 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
     private readonly Encoding _encoding = Encoding.GetEncoding(muninnConfiguration.Value.EncodingName);
     private readonly TimeSpan _defaultLifeTime = TimeSpan.FromHours(1);
 
+    public Task<MuninnResult<T>> AddAsync<T>(string key, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken = default) 
+        => SendCommandAsync($"muninn/{key}", HttpMethod.Post, value, lifeTime, encoding, cancellationToken);
+
     public Task<MuninnResult<T>> AddAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
-        => SendCommandAsync($"muninn/{key}", HttpMethod.Post, value, lifeTime, cancellationToken);
+        => SendCommandAsync($"muninn/{key}", HttpMethod.Post, value, lifeTime, _encoding, cancellationToken);
 
     public Task<MuninnResult<T>> AddAsync<T>(string key, T value, CancellationToken cancellationToken = default)
-        => SendCommandAsync($"muninn/{key}", HttpMethod.Post, value, _defaultLifeTime, cancellationToken);
+        => SendCommandAsync($"muninn/{key}", HttpMethod.Post, value, _defaultLifeTime, _encoding, cancellationToken);
+
+    public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken = default) 
+        => SendCommandAsync($"muninn/insert/{key}", HttpMethod.Post, value, lifeTime, encoding, cancellationToken);
 
     public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
-        => SendCommandAsync($"muninn/insert/{key}", HttpMethod.Post, value, lifeTime, cancellationToken);
+        => SendCommandAsync($"muninn/insert/{key}", HttpMethod.Post, value, lifeTime, _encoding, cancellationToken);
 
     public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, CancellationToken cancellationToken = default)
-        => SendCommandAsync($"muninn/insert/{key}", HttpMethod.Post, value, _defaultLifeTime, cancellationToken);
+        => SendCommandAsync($"muninn/insert/{key}", HttpMethod.Post, value, _defaultLifeTime, _encoding, cancellationToken);
+
+    public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken = default) 
+        => SendCommandAsync($"muninn/{key}", HttpMethod.Put, value, lifeTime, encoding, cancellationToken);
 
     public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
-        => SendCommandAsync($"muninn/{key}", HttpMethod.Put, value, lifeTime, cancellationToken);
+        => SendCommandAsync($"muninn/{key}", HttpMethod.Put, value, lifeTime, _encoding, cancellationToken);
 
     public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, CancellationToken cancellationToken = default)
-        => SendCommandAsync($"muninn/{key}", HttpMethod.Put, value, _defaultLifeTime, cancellationToken);
+        => SendCommandAsync($"muninn/{key}", HttpMethod.Put, value, _defaultLifeTime, _encoding, cancellationToken);
 
     public Task<MuninnResult<T>> RemoveAsync<T>(string key, CancellationToken cancellationToken = default) => SendBodyLessAsync<T>($"muninn/{key}", HttpMethod.Delete, cancellationToken);
 
     public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Delete, "muninn");
+        var path = "muninn";
+        var request = new HttpRequestMessage(HttpMethod.Delete, path);
         var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
 
         if (response is null)
         {
-            return new MuninnResult(false);
+            return new MuninnResult(false, "Cannot get response from the Muninn cache service.");
         }
 
+        var message = string.Empty;
+        
         if (!response.IsSuccessStatusCode)
         {
-            var message = await response.Content.ReadAsStringAsync(cancellationToken);
+            message = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-            _logger.LogBadRequest(string.Empty, message);
+            _logger.LogBadRequest(path, message);
         }
 
-        return new MuninnResult(response.IsSuccessStatusCode);
+        return new MuninnResult(response.IsSuccessStatusCode, message);
     }
 
     public Task<MuninnResult<T>> GetAsync<T>(string key, CancellationToken cancellationToken = default) => SendBodyLessAsync<T>($"muninn/{key}", HttpMethod.Get, cancellationToken);
-
-    public async Task<IEnumerable<T>> GetAllAsync<T>(CancellationToken cancellationToken = default)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Get, "muninn");
-        var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
-
-        if (response is null || !response.IsSuccessStatusCode)
-        {
-            return [];
-        }
-
-        var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-
-        return await JsonSerializer.DeserializeAsync<IEnumerable<T>>(stream, JsonSerializerOptions.Web, cancellationToken).ConfigureAwait(false) ?? [];
-    }
 
     private async Task<MuninnResult<T>> SendBodyLessAsync<T>(string path, HttpMethod httpMethod, CancellationToken cancellationToken)
     {
@@ -89,13 +86,13 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
         return await GetMuninnResultAsync<T>(response, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<MuninnResult<T>> SendCommandAsync<T>(string path, HttpMethod httpMethod, T value, TimeSpan lifeTime, CancellationToken cancellationToken)
+    private async Task<MuninnResult<T>> SendCommandAsync<T>(string path, HttpMethod httpMethod, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken)
     {
-        var body = new RequestBody<T>(value, lifeTime, _encoding.EncodingName);
+        var body = new RequestBody<T>(value, lifeTime, encoding.EncodingName);
         var serializedBody = JsonSerializer.Serialize(body);
         var request = new HttpRequestMessage(httpMethod, path)
         {
-            Content = new StringContent(serializedBody, _encoding, "application/json")
+            Content = new StringContent(serializedBody, encoding, "application/json")
         };
 
         var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -107,7 +104,7 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
     {
         if (response is null)
         {
-            return new MuninnResult<T>(false, default);
+            return new MuninnResult<T>(false, "Cannot get response from the Muninn cache service.", default);
         }
 
         if (response.IsSuccessStatusCode)
@@ -115,13 +112,13 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
             var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             var value = await JsonSerializer.DeserializeAsync(stream, JsonTypeInfo.CreateJsonTypeInfo<T>(JsonSerializerOptions.Web), cancellationToken).ConfigureAwait(false);
 
-            return new MuninnResult<T>(true, value);
+            return new MuninnResult<T>(true, string.Empty, value);
         }
 
-        var message = await response.Content.ReadAsStringAsync(cancellationToken);
+        var message = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogBadRequest(response.RequestMessage!.RequestUri!.AbsolutePath, message);
 
-        return new MuninnResult<T>(false, default);
+        return new MuninnResult<T>(false, message, default);
     }
 
     private async Task<HttpResponseMessage?> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

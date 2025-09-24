@@ -12,6 +12,7 @@ service MuninnService {
 	rpc Update (UpdateRequest) returns (UpdateReply);
 	rpc Insert (InsertRequest) returns (InsertReply);
 	rpc Delete (DeleteRequest) returns (DeleteReply);
+	rpc DeleteAll (DeleteAllRequest) returns (DeleteAllReply);
 }
 
 
@@ -22,6 +23,7 @@ message AddRequest {
 	bytes value = 2;
 	string encoding_name = 3;
 	google.protobuf.Duration life_time = 4;
+	string type_name = 5;
 }
 
 message AddReply {
@@ -48,6 +50,7 @@ message UpdateRequest {
 	bytes value = 2;
 	string encoding_name = 3;
 	google.protobuf.Duration life_time = 4;
+	string type_name = 5;
 }
 
 message UpdateReply {
@@ -62,6 +65,7 @@ message InsertRequest {
 	bytes value = 2;
 	string encoding_name = 3;
 	google.protobuf.Duration life_time = 4;
+	string type_name = 5;
 }
 
 message InsertReply {
@@ -79,4 +83,15 @@ message DeleteReply {
 	bool is_successful = 1;
 	bytes value = 2;
 	string encoding_name = 3;
+}
+
+
+// DeleteAllAsync
+
+message DeleteAllRequest {
+	;
+}
+
+message DeleteAllReply {
+    ;
 }

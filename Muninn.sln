@@ -29,6 +29,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Muninn.Client.Shared", "src
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Muninn.Grpc.Contracts", "src\Muninn.Grpc.Contracts\Muninn.Grpc.Contracts.csproj", "{C7EB9110-9943-A199-08B6-48A65BE88540}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Server", "Server", "{A3395E07-9554-4DED-8556-1D2AB56207CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Muninn.Server.Shared", "src\Muninn.Server.Shared\Muninn.Server.Shared.csproj", "{6E3C354B-E736-9AED-4C3A-E25A96152B9F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +71,10 @@ Global
 		{C7EB9110-9943-A199-08B6-48A65BE88540}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7EB9110-9943-A199-08B6-48A65BE88540}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7EB9110-9943-A199-08B6-48A65BE88540}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E3C354B-E736-9AED-4C3A-E25A96152B9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E3C354B-E736-9AED-4C3A-E25A96152B9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E3C354B-E736-9AED-4C3A-E25A96152B9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E3C354B-E736-9AED-4C3A-E25A96152B9F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,6 +90,8 @@ Global
 		{8A663663-CA02-4FF6-B7D7-2103C7D1F952} = {B169658E-E5AB-48D6-9A66-8E61158DE08C}
 		{F29FDBF4-6261-749B-F3B5-5F7EE750DA97} = {8A663663-CA02-4FF6-B7D7-2103C7D1F952}
 		{C7EB9110-9943-A199-08B6-48A65BE88540} = {716F8DFF-5B20-48DA-9F04-C798567E9751}
+		{A3395E07-9554-4DED-8556-1D2AB56207CD} = {B169658E-E5AB-48D6-9A66-8E61158DE08C}
+		{6E3C354B-E736-9AED-4C3A-E25A96152B9F} = {A3395E07-9554-4DED-8556-1D2AB56207CD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {49948E07-C885-48C7-8E93-0351E22069B9}

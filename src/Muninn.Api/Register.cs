@@ -1,14 +1,13 @@
-﻿namespace Muninn.Api;
+﻿using Muninn.Server.Shared;
+
+namespace Muninn.Api;
 
 public static class Register
 {
     public static IServiceCollection AddApi(this IServiceCollection services)
     {
-        var serviceProvider = services.BuildServiceProvider();
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var muninConfiguration = new MuninConfiguration();
-        configuration.Bind(nameof(MuninConfiguration), muninConfiguration);
-
+        services.AddOptions<MuninnConfiguration>();
+        
         return services;
     }
 }

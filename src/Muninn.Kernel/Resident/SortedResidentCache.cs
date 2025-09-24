@@ -33,7 +33,7 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, Residen
     private readonly SemaphoreSlim _semaphore = new(0);
     private readonly ILogger _logger = logger;
     private Entry?[] _entries = [];
-    internal const string MESSAGE = "Sorted";
+    internal const string Message = "Sorted";
 
     public bool IsSorting { get; private set; }
 
@@ -69,6 +69,6 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, Residen
 
         var index = Array.BinarySearch(_entries, Entry.CreateFilterEntry(key));
 
-        return int.IsNegative(index) ? new MuninnResult(false, null) : new MuninnResult(true, _entries[index], MESSAGE);
+        return int.IsNegative(index) ? new MuninnResult(false, null) : new MuninnResult(true, _entries[index], Message);
     }
 }

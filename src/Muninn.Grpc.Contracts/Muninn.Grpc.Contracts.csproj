@@ -12,7 +12,6 @@
 
 	<ItemGroup>
 		<Protobuf Include="Protos\muninn_service.proto" GrpcServices="Server" />
-		<Protobuf Include="Protos\muninn_stream.proto" GrpcServices="Server" />
 	</ItemGroup>
 
 </Project>

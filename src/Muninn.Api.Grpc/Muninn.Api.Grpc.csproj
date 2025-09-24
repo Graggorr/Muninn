@@ -18,12 +18,12 @@
 
 	<ItemGroup>
 		<Protobuf Include="..\Muninn.Grpc.Contracts\Protos\muninn_service.proto" GrpcServices="Server" Link="Protos\muninn_service.proto" />
-		<Protobuf Include="..\Muninn.Grpc.Contracts\Protos\muninn_stream.proto" GrpcServices="Server" Link="Protos\muninn_stream.proto" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Muninn.Grpc.Contracts\Muninn.Grpc.Contracts.csproj" />
 	  <ProjectReference Include="..\Muninn.Kernel\Muninn.Kernel.csproj" />
+	  <ProjectReference Include="..\Muninn.Server.Shared\Muninn.Server.Shared.csproj" />
   </ItemGroup>
 
 </Project>

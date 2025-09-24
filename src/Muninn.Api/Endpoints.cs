@@ -16,7 +16,6 @@ public static class Endpoints
         group.MapDelete("{key}", DeleteAsync);
         group.MapDelete(string.Empty, DeleteAll);
         group.MapGet("{key}", GetAsync);
-        group.MapGet(string.Empty, GetAllAsync);
 
         return group;
     }
@@ -47,15 +46,6 @@ public static class Endpoints
         var result = await cacheManager.GetAsync(request.Key, cancellationToken);
 
         return GetResponse(result, false);
-    }
-
-    private static async Task<IResult> GetAllAsync([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
-    {
-        var result = (await cacheManager.GetAllAsync(cancellationToken)).ToList();
-
-        return result.Count > 0 
-            ? Results.Ok(result.Select(entry => entry.Encoding.GetString(entry.Value))) 
-            : Results.NotFound();
     }
 
     private static async Task<IResult> PutAsync([AsParameters] PutRequest request,

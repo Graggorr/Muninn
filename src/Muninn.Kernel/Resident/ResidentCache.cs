@@ -12,7 +12,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         public bool IsUsed { get; set; }
     }
 
-    private const int NOT_VALID_INDEX = -1;
+    private const int NotValidIndex = -1;
 
     private readonly ILogger _logger = logger;
     private readonly IFilterManager _filterManager = filterManager;
@@ -27,12 +27,12 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     {
         var index = TryFindIndex(entry.Hashcode, out var freeIndex);
 
-        if (index is not NOT_VALID_INDEX)
+        if (index is not NotValidIndex)
         {
             return GetFailedResult($"Entry with a key {entry.Key} already exists", false);
         }
 
-        if (freeIndex is NOT_VALID_INDEX)
+        if (freeIndex is NotValidIndex)
         {
             await IncreaseArraySizeAsync(cancellationToken);
             freeIndex = GetFreeIndex();
@@ -46,7 +46,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
         var hashcode = key.GetHashCode();
         var index = TryFindIndex(hashcode, out _);
 
-        if (index is NOT_VALID_INDEX)
+        if (index is NotValidIndex)
         {
             return new MuninnResult(true, null);
         }
@@ -76,7 +76,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     {
         var index = TryFindIndex(key.GetHashCode(), out _);
 
-        if (index is NOT_VALID_INDEX)
+        if (index is NotValidIndex)
         {
             return new MuninnResult(false, null, $"Key {key} is not found");
         }
@@ -105,19 +105,19 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
     {
         var index = TryFindIndex(entry.Hashcode, out _);
 
-        return index is NOT_VALID_INDEX ? GetFailedResultAsync("Entry is not found in the cache") : UpdateCoreAsync(entry, index, cancellationToken);
+        return index is NotValidIndex ? GetFailedResultAsync("Entry is not found in the cache") : UpdateCoreAsync(entry, index, cancellationToken);
     }
 
     public async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
     {
         var index = TryFindIndex(entry.Hashcode, out var freeIndex);
 
-        if (index is NOT_VALID_INDEX)
+        if (index is NotValidIndex)
         {
             return await AddCoreAsync(entry, index, cancellationToken);
         }
 
-        if (freeIndex is NOT_VALID_INDEX)
+        if (freeIndex is NotValidIndex)
         {
             await IncreaseArraySizeAsync(cancellationToken);
             freeIndex = GetFreeIndex();
@@ -170,7 +170,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
 
     private int TryFindIndex(int hashcode, out int freeIndex)
     {
-        freeIndex = NOT_VALID_INDEX;
+        freeIndex = NotValidIndex;
 
         for (var i = 0; i < _entries.Length; i++)
         {
@@ -189,7 +189,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             freeIndex = i;
         }
 
-        if (freeIndex is not NOT_VALID_INDEX)
+        if (freeIndex is not NotValidIndex)
         {
             if (!_indexes[freeIndex].IsUsed)
             {
@@ -197,7 +197,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
             }
             else
             {
-                freeIndex = NOT_VALID_INDEX;
+                freeIndex = NotValidIndex;
 
                 for (var i = freeIndex + 1; i < _indexes.Length; i++)
                 {
@@ -206,13 +206,13 @@ internal class ResidentCache(ILogger<IResidentCache> logger, ResidentConfigurati
                         _indexes[i].IsUsed = true;
                         freeIndex = i;
 
-                        return NOT_VALID_INDEX;
+                        return NotValidIndex;
                     }
                 }
             }
         }
 
-        return NOT_VALID_INDEX;
+        return NotValidIndex;
     }
 
     private int GetFreeIndex()

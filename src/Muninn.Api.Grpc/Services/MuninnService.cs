@@ -95,4 +95,11 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
 
         return reply;
     }
+
+    public override async Task<DeleteAllReply> DeleteAll(DeleteAllRequest request, ServerCallContext context)
+    {
+        await _cacheManager.ClearAsync(context.CancellationToken);
+
+        return new();
+    }
 }

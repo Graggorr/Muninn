@@ -10,7 +10,7 @@ public class MuninnConfiguration
     /// <summary>
     /// Name of the default encoding for values
     /// </summary>
-    public string EncodingName { get; set; } = Encoding.ASCII.EncodingName;
+    public string EncodingName { get; set; } = Encoding.UTF8.EncodingName;
 
     /// <summary>
     /// Host name of the muninn server

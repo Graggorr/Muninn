@@ -16,7 +16,6 @@
 
 	<ItemGroup>
 		<Protobuf Include="..\Muninn.Grpc.Contracts\Protos\muninn_service.proto" GrpcServices="Client" Link="Protos\muninn_service.proto" />
-		<Protobuf Include="..\Muninn.Grpc.Contracts\Protos\muninn_stream.proto" GrpcServices="Client" Link="Protos\muninn_stream.proto" />
 	</ItemGroup>
 
 	<ItemGroup>
