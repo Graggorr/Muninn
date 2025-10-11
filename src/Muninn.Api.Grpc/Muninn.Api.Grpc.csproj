@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <InvariantGlobalization>true</InvariantGlobalization>
     <PublishAot>true</PublishAot>
+    <LangVersion>default</LangVersion>
   </PropertyGroup>
 
 	<ItemGroup>
@@ -23,7 +24,6 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\Muninn.Grpc.Contracts\Muninn.Grpc.Contracts.csproj" />
 	  <ProjectReference Include="..\Muninn.Kernel\Muninn.Kernel.csproj" />
-	  <ProjectReference Include="..\Muninn.Server.Shared\Muninn.Server.Shared.csproj" />
   </ItemGroup>
 
 </Project>

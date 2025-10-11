@@ -6,7 +6,7 @@ using Muninn.Kernel.Extensions;
 
 namespace Muninn.Kernel.BackgroundServices;
 
-internal class ResidentBackgroundService(ILogger<BackgroundService> logger, ISortedResidentCache sortedResidentCache, IResidentCache residentCache) : BackgroundService
+internal class SortedResidentCacheBackgroundService(ILogger<BackgroundService> logger, ISortedResidentCache sortedResidentCache, IResidentCache residentCache) : BackgroundService
 {
     private readonly ILogger _logger = logger;
     private readonly ISortedResidentCache _sortedResidentCache = sortedResidentCache;

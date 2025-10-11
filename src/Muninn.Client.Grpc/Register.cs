@@ -6,6 +6,11 @@ namespace Muninn.Grpc;
 
 public static class Register
 {
+    /// <summary>
+    /// Register Muninn client into the dependency injection
+    /// </summary>
+    /// <param name="services">Collection of the services to build <see cref="IServiceProvider"/></param>
+    /// <returns><paramref name="services"/></returns>
     public static IServiceCollection AddMuninnGrpc(this IServiceCollection services)
     {
         services.AddOptions<MuninnConfiguration>();
@@ -13,13 +18,6 @@ public static class Register
         {
             var configuration = serviceProvider.GetRequiredService<IOptions<MuninnConfiguration>>().Value;
             options.Address = new Uri(configuration.HostName);
-            options.CallOptionsActions.Add(callOptionsContext =>
-            {
-                callOptionsContext.CallOptions.WithHeaders(new()
-                {
-                    { "x-api-key", configuration.ApiKey }
-                });
-            });
         });
         services.AddSingleton<IMuninnClientGrpc, MuninnClientGrpc>();
         

@@ -4,6 +4,10 @@ namespace Muninn.Kernel.Common;
 
 public interface IResidentCache
 {
+    public int Count { get; }
+    
+    public int Length { get; }
+    
     public Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken);
 
     public Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken);
@@ -20,7 +24,11 @@ public interface IResidentCache
 
     public Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken);
 
-    public Task ClearAsync(CancellationToken cancellationToken);
+    public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken);
 
+    public Task<bool> IncreaseArraySizeAsync(CancellationToken cancellationToken);
+    
+    public Task<bool> DecreaseArraySizeAsync(CancellationToken cancellationToken);
+    
     internal Task InitializeAsync(Entry[] entries);
 }

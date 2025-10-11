@@ -5,7 +5,7 @@ using Muninn.Kernel.Models;
 
 namespace Muninn.Kernel.Resident;
 
-internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, ResidentConfiguration configuration) : ISortedResidentCache
+internal class SortedResidentCache(ILogger<ISortedResidentCache> logger) : ISortedResidentCache
 {
     private struct EntryComparer : IComparer<Entry>
     {

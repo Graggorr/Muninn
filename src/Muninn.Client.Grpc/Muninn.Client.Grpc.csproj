@@ -6,6 +6,7 @@
 		<Nullable>enable</Nullable>
 		<RootNamespace>Muninn.Grpc</RootNamespace>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<LangVersion>default</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>

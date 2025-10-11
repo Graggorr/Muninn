@@ -16,7 +16,7 @@ public interface IPersistentCache
 
     public Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken);
 
-    public Task ClearAsync(CancellationToken cancellationToken);
+    public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken);
 
     public void Initialize();
 }

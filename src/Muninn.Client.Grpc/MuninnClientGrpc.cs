@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using System.Text.Json;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.Extensions.Logging;
@@ -10,10 +9,10 @@ using static Muninn.Grpc.MuninnService;
 
 namespace Muninn.Grpc;
 
-internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnConfiguration> configuration, MuninnServiceClient client) : IMuninnClientGrpc
+internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnConfiguration> configuration,
+    MuninnServiceClient client) : IMuninnClientGrpc
 {
     private readonly ILogger _logger = logger;
-    private readonly MuninnConfiguration _configuration = configuration.Value;
     private readonly Encoding _encoding = Encoding.GetEncoding(configuration.Value.EncodingName);
     private readonly MuninnServiceClient _client = client;
     private readonly TimeSpan _defaultLifeTime = TimeSpan.FromHours(1);
@@ -27,7 +26,7 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
                 EncodingName = encoding.EncodingName,
                 Key = key,
                 LifeTime = lifeTime.ToDuration(),
-                Value = SerializeValue(value, encoding).ToByteString(),
+                Value = BinarySerializer.Serialize(value, encoding).ToByteString(),
             };
             var reply = await _client.AddAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -50,7 +49,7 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
                 EncodingName = encoding.EncodingName,
                 Key = key,
                 LifeTime = lifeTime.ToDuration(),
-                Value = SerializeValue(value, encoding).ToByteString(),
+                Value = BinarySerializer.Serialize(value, encoding).ToByteString(),
             };
             var reply = await _client.InsertAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -73,7 +72,7 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
                 EncodingName = encoding.EncodingName,
                 Key = key,
                 LifeTime = lifeTime.ToDuration(),
-                Value = SerializeValue(value, encoding).ToByteString(),
+                Value = BinarySerializer.Serialize(value, encoding).ToByteString(),
             };
             var reply = await _client.UpdateAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -112,9 +111,9 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
         try
         {
             var request = new DeleteAllRequest();
-            await _client.DeleteAllAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var reply = await _client.DeleteAllAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            return new MuninnResult(true, string.Empty);
+            return new MuninnResult(reply.IsSuccessful, reply.Message);
         }
         catch (Exception exception)
         {
@@ -169,18 +168,19 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
 
     private static MuninnResult<T> GetResult<T>(bool isSuccessful, ByteString encodedValue, Encoding encoding)
     {
-        var value = isSuccessful
-            ? JsonSerializer.Deserialize<T>(encoding.GetString(encodedValue.ToByteArray()), JsonSerializerOptions.Web)
-            : default;
-        var errorMessage = isSuccessful ? string.Empty : "Key is not found";
+        var value = default(T);
+        var errorMessage = string.Empty;
+        var array = encodedValue.ToByteArray();
+        
+        if (isSuccessful)
+        {
+            value = BinarySerializer.Deserialize<T>(array, encoding);
+        }
+        else
+        {
+            errorMessage = BinarySerializer.Deserialize<string>(array, encoding);
+        }
 
         return new MuninnResult<T>(isSuccessful, errorMessage, value);
-    }
-
-    private static byte[] SerializeValue<T>(T value, Encoding encoding)
-    {
-        var serializedValue = JsonSerializer.Serialize(value, JsonSerializerOptions.Web);
-
-        return encoding.GetBytes(serializedValue);
     }
 }

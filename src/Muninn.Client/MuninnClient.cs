@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
 namespace Muninn;
@@ -16,9 +17,6 @@ namespace Muninn;
 internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory httpClientFactory,
     IOptions<MuninnConfiguration> muninnConfiguration) : IMuninnClient
 {
-    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local")]
-    private readonly record struct RequestBody<T>(T Value, TimeSpan LifeTime, string EncodingName);
-
     private readonly ILogger _logger = logger;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly Encoding _encoding = Encoding.GetEncoding(muninnConfiguration.Value.EncodingName);
@@ -88,8 +86,8 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
 
     private async Task<MuninnResult<T>> SendCommandAsync<T>(string path, HttpMethod httpMethod, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken)
     {
-        var body = new RequestBody<T>(value, lifeTime, encoding.EncodingName);
-        var serializedBody = JsonSerializer.Serialize(body);
+        var body = new RequestBody(BinarySerializer.Serialize(value, encoding), lifeTime, encoding.EncodingName);
+        var serializedBody = JsonSerializer.Serialize(body, MuninnJsonSerializerContext.Default.RequestBody);
         var request = new HttpRequestMessage(httpMethod, path)
         {
             Content = new StringContent(serializedBody, encoding, "application/json")
@@ -110,7 +108,9 @@ internal class MuninnClient(ILogger<IMuninnClient> logger, IHttpClientFactory ht
         if (response.IsSuccessStatusCode)
         {
             var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            var value = await JsonSerializer.DeserializeAsync(stream, JsonTypeInfo.CreateJsonTypeInfo<T>(JsonSerializerOptions.Web), cancellationToken).ConfigureAwait(false);
+            var responseBody = (await JsonSerializer.DeserializeAsync(stream, MuninnJsonSerializerContext.Default.ResponseBody, cancellationToken)
+                .ConfigureAwait(false))!;
+            var value = BinarySerializer.Deserialize<T>(responseBody.value, Encoding.GetEncoding(responseBody.EncodingName));
 
             return new MuninnResult<T>(true, string.Empty, value);
         }

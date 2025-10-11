@@ -20,5 +20,5 @@ public interface ICacheManager
 
     public Task InitializeAsync();
 
-    public Task ClearAsync(CancellationToken cancellationToken);
+    public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken);
 }

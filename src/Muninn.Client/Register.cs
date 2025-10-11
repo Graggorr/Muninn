@@ -1,21 +1,19 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace Muninn;
 
 public static class Register
 {
+    /// <summary>
+    /// Register Muninn client into the dependency injection
+    /// </summary>
+    /// <param name="services">Collection of the services to build <see cref="IServiceProvider"/></param>
+    /// <returns><paramref name="services"/></returns>
     public static IServiceCollection AddMuninn(this IServiceCollection services)
     {
         services.AddOptions<MuninnConfiguration>();
         services.AddSingleton<IMuninnClient, MuninnClient>();
-        var serviceProvider = services.BuildServiceProvider();
-        services.AddHttpClient<MuninnClient>(nameof(MuninnClient), httpClient =>
-        {
-            var muninnConfiguration = serviceProvider.GetRequiredService<IOptions<MuninnConfiguration>>().Value;
-            httpClient.BaseAddress = new Uri(muninnConfiguration.HostName);
-            httpClient.DefaultRequestHeaders.Add("x-api-key", muninnConfiguration.ApiKey);
-        });
+        services.AddHttpClient<MuninnClient>(nameof(MuninnClient));
 
         return services;
     }

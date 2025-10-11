@@ -27,4 +27,4 @@ public sealed record InsertRequestBody(string Value, TimeSpan LifeTime, string E
 
 public sealed record DeleteRequest([FromRoute] string Key);
 
-public sealed record Response(string Value);
+public sealed record Response(string EncodingName, byte[] EncodedValue);

@@ -111,7 +111,19 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         await _residentCache.InitializeAsync(entries.ToArray());
     }
 
-    public Task ClearAsync(CancellationToken cancellationToken) => Task.WhenAll(_residentCache.ClearAsync(cancellationToken), _persistentCache.ClearAsync(cancellationToken));
+    public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken)
+    {
+        var tasks = new List<Task<MuninnResult>>
+        {
+            _residentCache.ClearAsync(cancellationToken),
+            _persistentCache.ClearAsync(cancellationToken),
+        };
+        await Task.WhenAll(tasks);
+
+        var failedTask = tasks.FirstOrDefault(task => !task.Result.IsSuccessful);
+
+        return failedTask?.Result ?? new(true, null);
+    }
 
     private static async Task<T> GetCoreAsync<T>(List<Task<T>> tasks, Func<T, bool> successfulCondition)
     {

@@ -5,6 +5,7 @@
 		<Nullable>enable</Nullable>
 		<EnableAOT>true</EnableAOT>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>default</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -16,7 +17,10 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Muninn.Kernel\Muninn.Kernel.csproj" />
-		<ProjectReference Include="..\Muninn.Server.Shared\Muninn.Server.Shared.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Extensions\" />
 	</ItemGroup>
 
 </Project>

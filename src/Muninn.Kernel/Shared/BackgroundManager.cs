@@ -29,6 +29,5 @@ internal class BackgroundManager : IBackgroundManager
 
     public void RemoveCleanupEntry(CleanupEntry cleanupEntry) => _cleanupEntries.Remove(cleanupEntry);
 
-    public ValueEnumerable<Where<FromEnumerable<CleanupEntry>, CleanupEntry>, CleanupEntry> GetExpiredEntries() 
-        => _cleanupEntries.AsValueEnumerable().Where(entry => entry.ExpirationTime >= DateTime.UtcNow);
+    public IEnumerable<CleanupEntry> GetExpiredEntries() => _cleanupEntries.Where(entry => entry.ExpirationTime >= DateTime.UtcNow);
 }

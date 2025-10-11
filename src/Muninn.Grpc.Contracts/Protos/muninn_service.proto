@@ -15,7 +15,6 @@ service MuninnService {
 	rpc DeleteAll (DeleteAllRequest) returns (DeleteAllReply);
 }
 
-
 // Add
 
 message AddRequest {
@@ -86,12 +85,13 @@ message DeleteReply {
 }
 
 
-// DeleteAllAsync
+// DeleteAll
 
 message DeleteAllRequest {
 	;
 }
 
 message DeleteAllReply {
-    ;
+    bool is_successful = 1;
+		string message = 2;
 }

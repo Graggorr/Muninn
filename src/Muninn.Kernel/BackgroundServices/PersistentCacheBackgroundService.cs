@@ -1,11 +1,10 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
-using System.Threading;
 
 namespace Muninn.Kernel.BackgroundServices;
 
-internal class PersistentBackgroundService(IPersistentCache persistentCache, IBackgroundManager persistentQueue) : BackgroundService
+internal class PersistentCacheBackgroundService(IPersistentCache persistentCache, IBackgroundManager persistentQueue) : BackgroundService
 {
     private readonly IPersistentCache _persistentCache = persistentCache;
     private readonly IBackgroundManager _persistentQueue = persistentQueue;
