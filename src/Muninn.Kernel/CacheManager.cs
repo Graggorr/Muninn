@@ -49,14 +49,7 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
             tasks.Add(Task.Factory.StartNew(() => _sortedResidentCache.GetByKey(key), cancellationToken));
         }
 
-        return await GetCoreAsync(tasks, result => result.IsSuccessful && (!result.Message.Equals(SortedResidentCache.MESSAGE) || DateTime.UtcNow - result.Entry!.LastModificationTime > TimeSpan.FromMinutes(5)));
-    }
-
-    public async Task<IEnumerable<Entry>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var entries = _residentCache.GetAll(cancellationToken).ToList();
-
-        return entries.Any() ? entries : await _persistentCache.GetAllAsync(cancellationToken);
+        return await GetCoreAsync(tasks, result => result.IsSuccessful && (!result.Message.Equals(SortedResidentCache.Message) || DateTime.UtcNow - result.Entry!.LastModificationTime > TimeSpan.FromMinutes(5)));
     }
 
     public async Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
@@ -118,7 +111,19 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
         await _residentCache.InitializeAsync(entries.ToArray());
     }
 
-    public Task ClearAsync(CancellationToken cancellationToken) => Task.WhenAll(_residentCache.ClearAsync(cancellationToken), _persistentCache.ClearAsync(cancellationToken));
+    public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken)
+    {
+        var tasks = new List<Task<MuninnResult>>
+        {
+            _residentCache.ClearAsync(cancellationToken),
+            _persistentCache.ClearAsync(cancellationToken),
+        };
+        await Task.WhenAll(tasks);
+
+        var failedTask = tasks.FirstOrDefault(task => !task.Result.IsSuccessful);
+
+        return failedTask?.Result ?? new(true, null);
+    }
 
     private static async Task<T> GetCoreAsync<T>(List<Task<T>> tasks, Func<T, bool> successfulCondition)
     {

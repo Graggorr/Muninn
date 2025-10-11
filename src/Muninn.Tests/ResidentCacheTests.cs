@@ -5,12 +5,12 @@ using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
 using Muninn.Kernel.Resident;
 using Muninn.Kernel.Shared;
+using Shouldly;
 
 namespace Muninn.Tests;
 
 public class ResidentCacheTests
 {
-    private readonly ResidentConfiguration _configuration = new();
     private readonly FilterManager _filterManager = new();
     private readonly ResidentCache _residentCache;
 
@@ -21,7 +21,7 @@ public class ResidentCacheTests
             factory.SetMinimumLevel(LogLevel.Information);
         });
         var logger = new Logger<IResidentCache>(loggerFactory);
-        _residentCache = new ResidentCache(logger, _configuration, _filterManager);
+        _residentCache = new ResidentCache(logger, _filterManager);
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class ResidentCacheTests
 
         // Assert
 
-        Assert.True(result.IsSuccessful);
+        result.IsSuccessful.ShouldBe(true);
         Assert.True(result.Entry is not null);
     }
 

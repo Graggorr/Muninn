@@ -18,8 +18,12 @@ public class Entry(string key, byte[] value, Encoding encoding, TimeSpan lifeTim
 
     public Encoding Encoding { get; set; } = encoding;
 
+    public static Entry Empty { get; } = new(string.Empty, [], Encoding.Default, TimeSpan.Zero);
+    
     public static Entry CreateFilterEntry(string key) => new(key, [], Encoding.ASCII, default);
 
+    public bool IsEmpty => CompareTo(Empty) is 0;
+    
     public int CompareTo(Entry? other)
     {
         if (ReferenceEquals(this, other))

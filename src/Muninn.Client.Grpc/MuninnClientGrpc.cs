@@ -1,167 +1,186 @@
 ﻿using System.Text;
-using System.Text.Json;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
-using Grpc.Core;
-using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Muninn.Grpc.Contracts.Extensions;
-using static Muninn.Grpc.MuninnStream;
+using Muninn.Grpc.Extensions;
 using static Muninn.Grpc.MuninnService;
 
 namespace Muninn.Grpc;
 
-internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnConfiguration> configuration) : IMuninnClientGrpc
+internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnConfiguration> configuration,
+    MuninnServiceClient client) : IMuninnClientGrpc
 {
     private readonly ILogger _logger = logger;
-    private readonly MuninnConfiguration _configuration = configuration.Value;
     private readonly Encoding _encoding = Encoding.GetEncoding(configuration.Value.EncodingName);
+    private readonly MuninnServiceClient _client = client;
     private readonly TimeSpan _defaultLifeTime = TimeSpan.FromHours(1);
 
-    public Task<MuninnResult<T>> AddAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default) 
-        => AddCoreAsync(key, value, lifeTime, cancellationToken);
+    public async Task<MuninnResult<T>> AddAsync<T>(string key, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new AddRequest
+            {
+                EncodingName = encoding.EncodingName,
+                Key = key,
+                LifeTime = lifeTime.ToDuration(),
+                Value = BinarySerializer.Serialize(value, encoding).ToByteString(),
+            };
+            var reply = await _client.AddAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-    public Task<MuninnResult<T>> AddAsync<T>(string key, T value, CancellationToken cancellationToken = default)
-        => AddCoreAsync(key, value, _defaultLifeTime, cancellationToken);
+            return GetResult<T>(reply.IsSuccessful, reply.Value);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogAddAsyncError(key, exception);
+            
+            return GetResult<T>(exception);
+        }
+    }
 
-    public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
-        => InsertCoreAsync(key, value, lifeTime, cancellationToken);
+    public async Task<MuninnResult<T>> InsertAsync<T>(string key, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new InsertRequest
+            {
+                EncodingName = encoding.EncodingName,
+                Key = key,
+                LifeTime = lifeTime.ToDuration(),
+                Value = BinarySerializer.Serialize(value, encoding).ToByteString(),
+            };
+            var reply = await _client.InsertAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-    public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, CancellationToken cancellationToken = default)
-        => InsertCoreAsync(key, value, _defaultLifeTime, cancellationToken);
+            return GetResult<T>(reply.IsSuccessful, reply.Value);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogInsertAsyncError(key, exception);
+            
+            return GetResult<T>(exception);
+        }
+    }
 
-    public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
-        => UpdateCoreAsync(key, value, lifeTime, cancellationToken);
+    public async Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, TimeSpan lifeTime, Encoding encoding, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new UpdateRequest
+            {
+                EncodingName = encoding.EncodingName,
+                Key = key,
+                LifeTime = lifeTime.ToDuration(),
+                Value = BinarySerializer.Serialize(value, encoding).ToByteString(),
+            };
+            var reply = await _client.UpdateAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-    public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, CancellationToken cancellationToken = default)
-        => UpdateCoreAsync(key, value, _defaultLifeTime, cancellationToken);
+            return GetResult<T>(reply.IsSuccessful, reply.Value);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogUpdateAsyncError(key, exception);
+            
+            return GetResult<T>(exception);
+        }
+    }
 
     public async Task<MuninnResult<T>> RemoveAsync<T>(string key, CancellationToken cancellationToken = default)
     {
-        var client = new MuninnServiceClient(GetGrpcChannel());
-        var request = new DeleteRequest
+        try
         {
-            Key = key,
-        };
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var reply = await client.DeleteAsync(request, callOptions).ConfigureAwait(false);
+            var request = new DeleteRequest
+            {
+                Key = key,
+            };
+            var reply = await _client.DeleteAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return GetResult<T>(reply.IsSuccessful, reply.Value, Encoding.GetEncoding(reply.EncodingName));
+            return GetResult<T>(reply.IsSuccessful, reply.Value, Encoding.GetEncoding(reply.EncodingName));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogRemoveAsyncError(key, exception);
+            
+            return GetResult<T>(exception);
+        }
     }
 
     public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default)
     {
-        var client = new MuninnStreamClient(GetGrpcChannel());
-        var request = new DeleteAllRequest
+        try
         {
-            ReturnValues = false,
-        };
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var reply = client.DeleteAllAsync(request, callOptions).ResponseStream.ReadAllAsync(cancellationToken).ConfigureAwait(false);
-        await using var asyncEnumerator = reply.GetAsyncEnumerator();
-        await asyncEnumerator.MoveNextAsync();
+            var request = new DeleteAllRequest();
+            var reply = await _client.DeleteAllAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return new MuninnResult(true);
+            return new MuninnResult(reply.IsSuccessful, reply.Message);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogClearAsyncError(exception);
+            
+            return GetResult(exception);
+        }
     }
 
     public async Task<MuninnResult<T>> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
-        var client = new MuninnServiceClient(GetGrpcChannel());
-        var request = new GetRequest
+        try
         {
-            Key = key,
-        };
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var reply = await client.GetAsync(request, callOptions);
+            var request = new GetRequest
+            {
+                Key = key,
+            };
+            var reply = await _client.GetAsync(request, cancellationToken: cancellationToken);
 
-        return GetResult<T>(reply.IsSuccessful, reply.Value, Encoding.GetEncoding(reply.EncodingName));
-    }
-
-    public async Task<IEnumerable<T>> GetAllAsync<T>(CancellationToken cancellationToken = default)
-    {
-        var client = new MuninnStreamClient(GetGrpcChannel());
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var replies = client.GetAllAsync(new(), callOptions).ResponseStream.ReadAllAsync(cancellationToken);
-        var list = new List<T>();
-
-        await foreach (var reply in replies)
-        {
-            var encoding = Encoding.GetEncoding(reply.EncodingName);
-            list.Add(JsonSerializer.Deserialize<T>(encoding.GetString(reply.Value.ToByteArray()), JsonSerializerOptions.Web)!);
+            return GetResult<T>(reply.IsSuccessful, reply.Value, Encoding.GetEncoding(reply.EncodingName));
         }
-
-        return list;
-    }
-
-    private async Task<MuninnResult<T>> AddCoreAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken)
-    {
-        var client = new MuninnServiceClient(GetGrpcChannel());
-        var request = new AddRequest
+        catch (Exception exception)
         {
-            EncodingName = _encoding.EncodingName,
-            Key = key,
-            LifeTime = lifeTime.ToDuration(),
-            Value = SerializeValue(value).ToByteString(),
-        };
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var reply = await client.AddAsync(request, callOptions).ConfigureAwait(false);
-
-        return GetResult<T>(reply.IsSuccessful, reply.Value);
+            return GetResult<T>(exception);
+        }
     }
 
-    private async Task<MuninnResult<T>> InsertCoreAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken)
-    {
-        var client = new MuninnServiceClient(GetGrpcChannel());
-        var request = new InsertRequest
-        {
-            EncodingName = _encoding.EncodingName,
-            Key = key,
-            LifeTime = lifeTime.ToDuration(),
-            Value = SerializeValue(value).ToByteString(),
-        };
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var reply = await client.InsertAsync(request, callOptions).ConfigureAwait(false);
+    public Task<MuninnResult<T>> AddAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
+        => AddAsync(key, value, lifeTime, _encoding, cancellationToken);
 
-        return GetResult<T>(reply.IsSuccessful, reply.Value);
-    }
+    public Task<MuninnResult<T>> AddAsync<T>(string key, T value, CancellationToken cancellationToken = default)
+        => AddAsync(key, value, _defaultLifeTime, _encoding, cancellationToken);
 
-    private async Task<MuninnResult<T>> UpdateCoreAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken)
-    {
-        var client = new MuninnServiceClient(GetGrpcChannel());
-        var request = new UpdateRequest
-        {
-            EncodingName = _encoding.EncodingName,
-            Key = key,
-            LifeTime = lifeTime.ToDuration(),
-            Value = SerializeValue(value).ToByteString(),
-        };
-        var callOptions = new CallOptions(cancellationToken: cancellationToken);
-        var reply = await client.UpdateAsync(request, callOptions).ConfigureAwait(false);
+    public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default) 
+        => InsertAsync(key, value, lifeTime, _encoding, cancellationToken);
 
-        return GetResult<T>(reply.IsSuccessful, reply.Value);
-    }
+    public Task<MuninnResult<T>> InsertAsync<T>(string key, T value, CancellationToken cancellationToken = default)
+        => InsertAsync(key, value, _defaultLifeTime, _encoding, cancellationToken);
 
-    private ChannelBase GetGrpcChannel()
-    {
-        return GrpcChannel.ForAddress(_configuration.HostName);
-    }
+    public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, TimeSpan lifeTime, CancellationToken cancellationToken = default)
+        => UpdateAsync(key, value, lifeTime, _encoding, cancellationToken);
 
-    private MuninnResult<T> GetResult<T>(bool isSuccessful, ByteString encodedValue) => GetResult<T>(isSuccessful, encodedValue, _encoding);
+    public Task<MuninnResult<T>> UpdateAsync<T>(string key, T value, CancellationToken cancellationToken = default)
+        => UpdateAsync(key, value, _defaultLifeTime, _encoding, cancellationToken);
+
+    private static MuninnResult<T> GetResult<T>(Exception exception) => new(false, exception.Message, default);
+
+    private static MuninnResult GetResult(Exception exception) => new(false, exception.Message);
+
+    private MuninnResult<T> GetResult<T>(bool isSuccessful, ByteString encodedValue) =>
+        GetResult<T>(isSuccessful, encodedValue, _encoding);
 
     private static MuninnResult<T> GetResult<T>(bool isSuccessful, ByteString encodedValue, Encoding encoding)
     {
-        var value = isSuccessful
-            ? JsonSerializer.Deserialize<T>(encoding.GetString(encodedValue.ToByteArray()), JsonSerializerOptions.Web)
-            : default;
+        var value = default(T);
+        var errorMessage = string.Empty;
+        var array = encodedValue.ToByteArray();
+        
+        if (isSuccessful)
+        {
+            value = BinarySerializer.Deserialize<T>(array, encoding);
+        }
+        else
+        {
+            errorMessage = BinarySerializer.Deserialize<string>(array, encoding);
+        }
 
-        return new MuninnResult<T>(isSuccessful, value);
-    }
-
-    private byte[] SerializeValue<T>(T value)
-    {
-        var serializedValue = JsonSerializer.Serialize(value, JsonSerializerOptions.Web);
-
-        return _encoding.GetBytes(serializedValue);
+        return new MuninnResult<T>(isSuccessful, errorMessage, value);
     }
 }

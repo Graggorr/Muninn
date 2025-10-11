@@ -14,9 +14,8 @@ public static class Endpoints
         group.MapPost("{key}/insert", InsertAsync);
         group.MapPut("{key}", PutAsync);
         group.MapDelete("{key}", DeleteAsync);
-        group.MapDelete(string.Empty, DeleteAll);
+        group.MapDelete(string.Empty, DeleteAllAsync);
         group.MapGet("{key}", GetAsync);
-        group.MapGet(string.Empty, GetAllAsync);
 
         return group;
     }
@@ -49,15 +48,6 @@ public static class Endpoints
         return GetResponse(result, false);
     }
 
-    private static async Task<IResult> GetAllAsync([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
-    {
-        var result = (await cacheManager.GetAllAsync(cancellationToken)).ToList();
-
-        return result.Count > 0 
-            ? Results.Ok(result.Select(entry => entry.Encoding.GetString(entry.Value))) 
-            : Results.NotFound();
-    }
-
     private static async Task<IResult> PutAsync([AsParameters] PutRequest request,
         [FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
@@ -76,7 +66,7 @@ public static class Endpoints
         return GetResponse(result, true);
     }
 
-    private static async Task<IResult> DeleteAll([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
+    private static async Task<IResult> DeleteAllAsync([FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
         await cacheManager.ClearAsync(cancellationToken);
 
@@ -87,7 +77,7 @@ public static class Endpoints
     {
         if (result is { IsSuccessful: true, Entry: not null })
         {
-            return Results.Ok(new Response(result.Entry.Encoding.GetString(result.Entry.Value)));
+            return Results.Ok(new Response(result.Entry.Encoding.EncodingName, result.Entry.Value));
         }
 
         if (result.IsCancelled)

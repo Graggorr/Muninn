@@ -1,16 +1,15 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
-using System.Threading;
 
 namespace Muninn.Kernel.BackgroundServices;
 
-internal class PersistentBackgroundService(IPersistentCache persistentCache, IBackgroundManager persistentQueue) : BackgroundService
+internal class PersistentCacheBackgroundService(IPersistentCache persistentCache, IBackgroundManager persistentQueue) : BackgroundService
 {
     private readonly IPersistentCache _persistentCache = persistentCache;
     private readonly IBackgroundManager _persistentQueue = persistentQueue;
     private readonly TimeSpan _delayTime = TimeSpan.FromMilliseconds(200);
-    private const int MAX_TRY_COUNT = 10;
+    private const int MaxTryCount = 10;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -51,10 +50,10 @@ internal class PersistentBackgroundService(IPersistentCache persistentCache, IBa
         {
             return;
         }
-
+        
         if (result is { IsSuccessful: false, Exception: not null })
         {
-            if (command.TryCount <= MAX_TRY_COUNT)
+            if (command.TryCount <= MaxTryCount)
             {
                 command = command.IncreaseTryCount();
 

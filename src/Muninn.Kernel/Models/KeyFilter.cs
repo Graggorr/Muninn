@@ -7,7 +7,7 @@ public enum Condition : short
     Not = 2,
 }
 
-public readonly ref struct KeyFilter(string value, Condition condition)
+public readonly struct KeyFilter(string value, Condition condition)
 {
     public string Value { get; init; } = value;
 

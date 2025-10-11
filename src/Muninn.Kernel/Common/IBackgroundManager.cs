@@ -16,5 +16,5 @@ internal interface IBackgroundManager
 
     public void RemoveCleanupEntry(CleanupEntry cleanupEntry);
 
-    public ValueEnumerable<Where<FromEnumerable<CleanupEntry>, CleanupEntry>, CleanupEntry> GetExpiredEntries();
+    public IEnumerable<CleanupEntry> GetExpiredEntries();
 }

@@ -1,6 +1,6 @@
 ﻿namespace Muninn.Kernel.Models;
 
-public readonly ref struct ValueFilter(string value, Condition condition)
+public readonly struct ValueFilter(string value, Condition condition)
 {
     public string Value { get; init; } = value;
 

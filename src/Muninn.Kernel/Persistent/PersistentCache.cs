@@ -8,7 +8,7 @@ using Muninn.Kernel.Shared;
 
 namespace Muninn.Kernel.Persistent;
 
-internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfiguration persistentConfiguration, IFilterManager filterManager) : IPersistentCache
+internal class PersistentCache(ILogger<IPersistentCache> logger, IFilterManager filterManager) : IPersistentCache
 {
     private class StreamResult(IDisposable? stream, Exception? exception)
     {
@@ -21,36 +21,37 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
     private class EntryFileData(string key, Encoding encoding, TimeSpan lifeTime)
     {
-        public string Key { get; init; } = key;
+        public string Key { get; } = key;
 
-        public Encoding Encoding { get; init; } = encoding;
+        public Encoding Encoding { get; } = encoding;
 
-        public TimeSpan LifeTime { get; init; } = lifeTime;
+        public TimeSpan LifeTime { get; } = lifeTime;
     }
 
-    private const string FILE_EXTENSION = ".muninn";
+    private const string FileExtension = ".muninn";
 
     private readonly ILogger _logger = logger;
     private readonly IFilterManager _filterManager = filterManager;
-    private readonly string _directoryPath = persistentConfiguration.DirectoryPath;
-    private readonly int _defaultBufferSize = persistentConfiguration.DefaultBufferSize;
+    private readonly string _directoryPath = Directory.GetCurrentDirectory();
     private readonly ConcurrentHashSet<StreamWriter> _streamWriters = new();
     private readonly SemaphoreSlim _semaphore = new(1);
 
-    private const string LIFETIME_STRING_FORMAT = "G";
-    private const int KEY_POSITION = 0;
-    private const int ENCODING_POSITION = 1;
-    private const int LIFETIME_POSITION = 2;
+    private const string LifetimeStringFormat = "G";
+    private const int DefaultBufferSize = 4096;
+    private const int KeyPosition = 0;
+    private const int EncodingPosition = 1;
+    private const int LifetimePosition = 2;
 
     public async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
     {
-        var fullPath = BuildFullPath(entry.Key, entry.Encoding.EncodingName, entry.LifeTime.ToString(LIFETIME_STRING_FORMAT));
+        var fullPath = BuildFullPath(entry.Key, entry.Encoding.EncodingName,
+            entry.LifeTime.ToString(LifetimeStringFormat));
         await _semaphore.WaitAsync(cancellationToken);
         var streamResult = CreateStream(fullPath, entry.Encoding, true, entry.Value.Length);
 
         if (streamResult.Exception is not null)
         {
-            return CreateFailedMuninResult(streamResult.Exception);
+            return CreateFailedMuninnResult(streamResult.Exception);
         }
 
         var streamWriter = streamResult.GetStream<StreamWriter>();
@@ -62,17 +63,17 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
             return new MuninnResult(true, entry);
         }
-        catch (ObjectDisposedException) 
+        catch (ObjectDisposedException)
         {
             // this happens only if ClearAsync() has been called
 
-            return CreateFailedMuninResult(null!, "Clear all has been called");
+            return CreateFailedMuninnResult(null!, "Clear all has been called");
         }
         catch (Exception exception)
         {
             _logger.LogFailedFileInsert(entry.Key, exception);
 
-            return CreateFailedMuninResult(exception, "Cannot write data into the file");
+            return CreateFailedMuninnResult(exception, "Cannot write data into the file");
         }
         finally
         {
@@ -80,7 +81,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         }
     }
 
-    public async Task ClearAsync(CancellationToken cancellationToken)
+    public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
 
@@ -89,24 +90,43 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             await streamWriter.DisposeAsync();
         }
 
-        var filePaths = Directory.GetFiles(_directoryPath, $"*{FILE_EXTENSION}");
+        var filePaths = Directory.GetFiles(_directoryPath, $"*{FileExtension}");
 
-        foreach (var filePath in filePaths)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var filePath in filePaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            try
-            {
-                DeleteFile(filePath);
+                try
+                {
+                    DeleteFile(filePath, filePath.Split('-').First());
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogFailedFileDelete(Path.GetFileName(filePath), exception);
+                }
             }
-            catch (Exception exception)
-            {
-                _logger.LogFailedFileDelete(Path.GetFileName(filePath), exception);
-            }
+
+            return new MuninnResult(true, null);
         }
+        catch (OperationCanceledException operationCanceledException)
+        {
+            _logger.LogCancelledRequest(nameof(ClearAsync), operationCanceledException);
 
-        _streamWriters.Clear();
-        _semaphore.Release(1);
+            return CreateFailedMuninnResult(operationCanceledException, operationCanceledException.Message);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogClearAsyncError(exception);
+
+            return CreateFailedMuninnResult(exception, exception.Message);
+        }
+        finally
+        {
+            _streamWriters.Clear();
+            _semaphore.Release(1);
+        }
     }
 
     public async Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken)
@@ -119,11 +139,11 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         }
 
         var entryFileData = GetEntryFileData(fullPath);
-        var streamResult = CreateStream(fullPath, entryFileData.Encoding, false, _defaultBufferSize);
+        var streamResult = CreateStream(fullPath, entryFileData.Encoding, false, DefaultBufferSize);
 
         if (streamResult.Exception is not null)
         {
-            return CreateFailedMuninResult(streamResult.Exception);
+            return CreateFailedMuninnResult(streamResult.Exception);
         }
 
         var streamReader = streamResult.GetStream<StreamReader>();
@@ -131,8 +151,15 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
         try
         {
-            var entry = await ReadFileAsync(streamReader, key, entryFileData.Encoding, entryFileData.LifeTime, cancellationToken);
-            DeleteFile(fullPath);
+            var entry = await ReadFileAsync(streamReader, key, entryFileData.Encoding, entryFileData.LifeTime,
+                cancellationToken);
+
+            if (entry.IsEmpty)
+            {
+                return new MuninnResult(true, null, string.Empty);
+            }
+
+            DeleteFile(fullPath, entry.Key);
 
             return new MuninnResult(true, entry);
         }
@@ -140,7 +167,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         {
             _logger.LogFailedFileDelete(key, exception);
 
-            return CreateFailedMuninResult(exception);
+            return CreateFailedMuninnResult(exception);
         }
         finally
         {
@@ -158,26 +185,27 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         }
 
         var entryFileData = GetEntryFileData(fullPath);
-        var streamResult = CreateStream(fullPath, entryFileData.Encoding, false, _defaultBufferSize);
+        var streamResult = CreateStream(fullPath, entryFileData.Encoding, false, DefaultBufferSize);
 
         if (streamResult.Exception is not null)
         {
-            return CreateFailedMuninResult(streamResult.Exception);
+            return CreateFailedMuninnResult(streamResult.Exception);
         }
 
         var streamReader = streamResult.GetStream<StreamReader>();
 
         try
         {
-            var entry = await ReadFileAsync(streamReader, key, entryFileData.Encoding, entryFileData.LifeTime, cancellationToken);
+            var entry = await ReadFileAsync(streamReader, key, entryFileData.Encoding, entryFileData.LifeTime,
+                cancellationToken);
 
-            return new MuninnResult(true, entry);
+            return entry.IsEmpty ? CreateEmptyEntryMuninnResult(key) : new MuninnResult(true, entry);
         }
         catch (Exception exception)
         {
             _logger.LogFailedFileRead(key, exception);
 
-            return CreateFailedMuninResult(exception);
+            return CreateFailedMuninnResult(exception);
         }
         finally
         {
@@ -187,9 +215,9 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
     public async Task<IEnumerable<Entry>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var filePaths = Directory.GetFiles(_directoryPath, $"*{FILE_EXTENSION}");
+        var filePaths = Directory.GetFiles(_directoryPath, $"*{FileExtension}");
 
-        if (!filePaths.Any())
+        if (filePaths.Length is 0)
         {
             return [];
         }
@@ -205,7 +233,7 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
         {
             var entryFileData = GetEntryFileData(filePath);
             var key = entryFileData.Key;
-            var streamResult = CreateStream(filePath, entryFileData.Encoding, false, _defaultBufferSize);
+            var streamResult = CreateStream(filePath, entryFileData.Encoding, false, DefaultBufferSize);
 
             if (streamResult.Stream is null)
             {
@@ -216,7 +244,13 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
 
             try
             {
-                entries.Add(await ReadFileAsync(streamReader, key, entryFileData.Encoding, entryFileData.LifeTime, token));
+                var entry = await ReadFileAsync(streamReader, key, entryFileData.Encoding, entryFileData.LifeTime,
+                    token);
+
+                if (!entry.IsEmpty)
+                {
+                    entries.Add(entry);
+                }
             }
             catch (Exception exception)
             {
@@ -228,17 +262,19 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             }
         });
 
-        return entries.OrderBy(entry => entry.Key).ToList();
+        return entries.OrderBy(entry => entry.Key).ToArray();
     }
 
-    public async Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
+    public async Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks,
+        CancellationToken cancellationToken)
     {
         var entries = await GetAllAsync(cancellationToken);
 
         return _filterManager.FilterEntryKeys(entries.ToArray(), chunks, cancellationToken);
     }
 
-    public async Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken)
+    public async Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<ValueFilter>> chunks,
+        CancellationToken cancellationToken)
     {
         var entries = await GetAllAsync(cancellationToken);
 
@@ -249,16 +285,29 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
     {
         if (!Directory.Exists(_directoryPath))
         {
-            Directory.CreateDirectory(_directoryPath, UnixFileMode.None);
+            Directory.CreateDirectory(_directoryPath);
         }
     }
 
-    private static async Task<Entry> ReadFileAsync(StreamReader streamReader, string key, Encoding encoding, TimeSpan lifeTime, CancellationToken cancellationToken)
+    private static async Task<Entry> ReadFileAsync(StreamReader streamReader, string key, Encoding encoding,
+        TimeSpan lifeTime, CancellationToken cancellationToken)
     {
         var result = await streamReader.ReadToEndAsync(cancellationToken);
+
+        if (string.IsNullOrEmpty(result))
+        {
+            return Entry.Empty;
+        }
+
         var value = encoding.GetBytes(result);
 
         return new Entry(key, value, encoding, lifeTime);
+    }
+
+    private void DeleteFile(string fullPath, string key)
+    {
+        File.Delete(fullPath);
+        _logger.LogFileDelete(key);
     }
 
     private StreamResult CreateStream(string fullPath, Encoding encoding, bool isWriting, int bufferSize)
@@ -269,8 +318,9 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             IDisposable stream;
 
             if (isWriting)
-            { 
-                fileStream = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite, bufferSize, FileOptions.WriteThrough | FileOptions.Asynchronous);
+            {
+                fileStream = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite,
+                    bufferSize, FileOptions.WriteThrough | FileOptions.Asynchronous);
                 var streamWriter = new StreamWriter(fileStream, encoding, bufferSize)
                 {
                     AutoFlush = true,
@@ -280,7 +330,8 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
             }
             else
             {
-                fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize, FileOptions.Asynchronous);
+                fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete, bufferSize, FileOptions.Asynchronous);
                 stream = new StreamReader(fileStream, encoding);
             }
 
@@ -312,18 +363,20 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, PersistentConfi
     private static EntryFileData GetEntryFileData(string fullPath)
     {
         var split = Path.GetFileNameWithoutExtension(fullPath).Split('-');
-        var key = split[KEY_POSITION];
-        var encoding = Encoding.GetEncoding(split[ENCODING_POSITION]);
-        var lifeTime = TimeSpan.Parse(split[LIFETIME_POSITION]);
+        var key = split[KeyPosition];
+        var encoding = Encoding.GetEncoding(split[EncodingPosition]);
+        var lifeTime = TimeSpan.Parse(split[LifetimePosition]);
 
         return new EntryFileData(key, encoding, lifeTime);
     }
 
-    private string BuildFullPath(string key, string encoding, string lifeTime) => Path.Combine(_directoryPath, $"{key}-{encoding}-{lifeTime}{FILE_EXTENSION}");
+    private string BuildFullPath(string key, string encoding, string lifeTime) =>
+        Path.Combine(_directoryPath, $"{key}-{encoding}-{lifeTime}{FileExtension}");
 
     private string GetFullPath(string key) => Directory.GetFiles(_directoryPath, key).FirstOrDefault() ?? string.Empty;
 
-    private static void DeleteFile(string fullPath) => File.Delete(fullPath);
+    private static MuninnResult CreateFailedMuninnResult(Exception exception, string message = "") =>
+        new(false, null, message, exception);
 
-    private static MuninnResult CreateFailedMuninResult(Exception exception, string message = "") => new(false, null, message, exception);
+    private static MuninnResult CreateEmptyEntryMuninnResult(string key) => new(false, null, $"{key} is not found.");
 }

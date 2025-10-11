@@ -18,12 +18,13 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
         var encoding = Encoding.GetEncoding(request.EncodingName);
         var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding, request.LifeTime.ToTimeSpan());
         var result = await _cacheManager.AddAsync(entry, context.CancellationToken);
-
-        return new()
+        var reply = new AddReply
         {
             IsSuccessful = result.IsSuccessful,
-            Value = encoding.GetBytes(result.Message).ToByteString(),
+            Value = result.IsSuccessful ? entry.Value.ToByteString() : encoding.GetBytes(result.Message).ToByteString()
         };
+
+        return reply;
     }
 
     public override async Task<InsertReply> Insert(InsertRequest request, ServerCallContext context)
@@ -31,12 +32,13 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
         var encoding = Encoding.GetEncoding(request.EncodingName);
         var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding, request.LifeTime.ToTimeSpan());
         var result = await _cacheManager.InsertAsync(entry, context.CancellationToken);
-
-        return new()
+        var reply = new InsertReply
         {
             IsSuccessful = result.IsSuccessful,
-            Value = encoding.GetBytes(result.Message).ToByteString(),
+            Value = result.IsSuccessful ? entry.Value.ToByteString() : encoding.GetBytes(result.Message).ToByteString(),
         };
+
+        return reply;
     }
 
     public override async Task<GetReply> Get(GetRequest request, ServerCallContext context)
@@ -54,8 +56,9 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
         }
         else
         {
-            reply.Value = ByteString.Empty;
-            reply.EncodingName = string.Empty;
+            var encoding = Encoding.UTF8;
+            reply.Value = encoding.GetBytes(result.Message).ToByteString();
+            reply.EncodingName = encoding.EncodingName;
         }
 
         return reply;
@@ -66,12 +69,13 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
         var encoding = Encoding.GetEncoding(request.EncodingName);
         var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding, request.LifeTime.ToTimeSpan());
         var result = await _cacheManager.UpdateAsync(entry, context.CancellationToken);
-
-        return new()
+        var reply = new UpdateReply
         {
             IsSuccessful = result.IsSuccessful,
-            Value = encoding.GetBytes(result.Message).ToByteString(),
+            Value = result.IsSuccessful ? entry.Value.ToByteString() : encoding.GetBytes(result.Message).ToByteString(),
         };
+
+        return reply;
     }
 
     public override async Task<DeleteReply> Delete(DeleteRequest request, ServerCallContext context)
@@ -89,10 +93,22 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
         }
         else
         {
-            reply.Value = ByteString.Empty;
-            reply.EncodingName = string.Empty;
+            var encoding = Encoding.UTF8;
+            reply.Value = encoding.GetBytes(result.Message).ToByteString();
+            reply.EncodingName = encoding.EncodingName;
         }
 
         return reply;
+    }
+
+    public override async Task<DeleteAllReply> DeleteAll(DeleteAllRequest request, ServerCallContext context)
+    {
+        var result = await _cacheManager.ClearAsync(context.CancellationToken);
+
+        return new()
+        {
+            IsSuccessful = result.IsSuccessful,
+            Message = result.Message,
+        };
     }
 }

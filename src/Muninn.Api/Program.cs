@@ -1,5 +1,4 @@
 using Muninn.Api;
-using Muninn.Api.Middlewares;
 using Muninn.Kernel;
 using Scalar.AspNetCore;
 
@@ -15,7 +14,6 @@ services.AddMuninKernel();
 services.AddSwaggerGen();
 services.AddMvc();
 services.AddControllers();
-services.AddApi();
 
 var app = builder.Build();
 
@@ -33,7 +31,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseHttpLogging();
-app.UseMiddleware<ApiKeyMiddleware>();
 app.MapEndpoints();
 
 await app.InitializeMuninAsync();
