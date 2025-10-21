@@ -5,22 +5,24 @@ using Muninn.Kernel.Models;
 
 namespace Muninn.Kernel.Resident;
 
-internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filterManager) : IResidentCache
+internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filterManager)
+    : BaseCache<IResidentCache>(logger, filterManager), IResidentCache
 {
     private class ResidentCacheIndex
     {
         public bool IsUsed { get; set; }
     }
+    
+    internal const int DefaultIncreaseValue = 1000;
 
     private const int NotValidIndex = -1;
-    private const int DefaultIncreaseValue = 1000;
     
-    private readonly ILogger _logger = logger;
+    protected readonly SemaphoreSlim _semaphoreSlim = new(1);
+    protected Entry?[] _entries = new Entry[DefaultIncreaseValue];
+    
     private readonly IFilterManager _filterManager = filterManager;
-    private readonly SemaphoreSlim _semaphoreSlim = new(1);
-
     private ResidentCacheIndex[] _indexes = CreateIndexes(DefaultIncreaseValue);
-    private Entry?[] _entries = new Entry[DefaultIncreaseValue];
+    
     private bool _isResizeCalled;
     private int _count;
 
@@ -29,18 +31,19 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         get
         {
             _semaphoreSlim.Wait();
-            
-            return _count;
+            var value = _count;
+            _semaphoreSlim.Release(1);
+
+            return value;
         }
-        private set => _count = value;
     }
 
     public int Length => _entries.Length;
     
-    public async Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken)
+    public virtual async Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken = default)
     {
         var index = TryFindIndex(entry.Hashcode, out var freeIndex);
-
+        
         if (index is not NotValidIndex)
         {
             return GetFailedResult($"Entry with a key {entry.Key} already exists", false);
@@ -48,9 +51,11 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
 
         if (freeIndex is NotValidIndex)
         {
-            if (!await IncreaseArraySizeAsync(cancellationToken))
+            var increaseResult = await IncreaseArraySizeAsync(cancellationToken);
+
+            if (!increaseResult.IsSuccessful)
             {
-                return GetFailedResult("Cannot increase array size", false);
+                return increaseResult;
             }
             
             freeIndex = GetFreeIndex();
@@ -59,7 +64,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         return await AddCoreAsync(entry, freeIndex, cancellationToken);
     }
 
-    public async Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken)
+    public virtual async Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken = default)
     {
         var hashcode = key.GetHashCode();
         var index = TryFindIndex(hashcode, out _);
@@ -75,7 +80,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
             await _semaphoreSlim.WaitAsync(cancellationToken);
             _entries[index] = null;
             _indexes[index].IsUsed = false;
-            Count--;
+            _count--;
             
             return new MuninnResult(true, entry);
         }
@@ -91,7 +96,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         }
     }
 
-    public MuninnResult Get(string key, CancellationToken cancellationToken)
+    public virtual MuninnResult Get(string key, CancellationToken cancellationToken = default)
     {
         var index = TryFindIndex(key.GetHashCode(), out _);
 
@@ -100,63 +105,72 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
             return new MuninnResult(false, null, $"Key {key} is not found");
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return GetCancelledResult(nameof(Get), key, new("Cancellation has been requested"));
+        }
+
         var entry = _entries[index];
 
         return new MuninnResult(entry is not null, entry);
     }
 
-    public IEnumerable<Entry> GetAll(CancellationToken cancellationToken)
+    public virtual IEnumerable<Entry> GetAll(CancellationToken cancellationToken = default)
     {
         return _entries.Where(entry => entry is not null)!;
     }
 
-    public IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
+    public virtual IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken = default)
     {
         return _filterManager.FilterEntryKeys(_entries, chunks, cancellationToken);
     }
 
-    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken)
+    public virtual IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken = default)
     {
         return _filterManager.FilterEntryValues(_entries, chunks, cancellationToken);
     }
 
-    public Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken)
+    public virtual async Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken = default)
     {
         var index = TryFindIndex(entry.Hashcode, out _);
 
-        return index is NotValidIndex ? GetFailedResultAsync("Entry is not found in the cache") : UpdateCoreAsync(entry, index, cancellationToken);
+        return index is NotValidIndex 
+            ? GetFailedResult("Entry is not found in the cache", false)
+            : await UpdateCoreAsync(entry, index, cancellationToken);
     }
 
-    public async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken)
+    public virtual async Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken = default)
     {
         var index = TryFindIndex(entry.Hashcode, out var freeIndex);
 
         if (index is NotValidIndex)
         {
-            return await AddCoreAsync(entry, index, cancellationToken);
-        }
-
-        if (freeIndex is NotValidIndex)
-        {
-            if (!await IncreaseArraySizeAsync(cancellationToken))
+            if (freeIndex is NotValidIndex)
             {
-                return GetFailedResult("Cannot increase array size", false);
+                var increaseResult = await IncreaseArraySizeAsync(cancellationToken);
+
+                if (!increaseResult.IsSuccessful)
+                {
+                    return increaseResult;
+                }
+            
+                freeIndex = GetFreeIndex();
             }
             
-            freeIndex = GetFreeIndex();
+            return await AddCoreAsync(entry, freeIndex, cancellationToken);
         }
 
-        return await UpdateCoreAsync(entry, freeIndex, cancellationToken);
+        return await UpdateCoreAsync(entry, index, cancellationToken);
     }
 
-    public async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken)
+    public virtual async Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
             _entries = new Entry[DefaultIncreaseValue];
             _indexes = CreateIndexes(DefaultIncreaseValue);
-            Count = 0;
+            _count = 0;
             GC.Collect();
 
             return new(true, null);
@@ -179,9 +193,9 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         }
     }
 
-    public async Task InitializeAsync(Entry[] entries)
+    public async Task InitializeAsync(Entry[] entries, CancellationToken cancellationToken = default)
     {
-        await _semaphoreSlim.WaitAsync();
+        await _semaphoreSlim.WaitAsync(cancellationToken);
 
         if (entries.Length < DefaultIncreaseValue)
         {
@@ -211,42 +225,46 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         GC.Collect();
     }
 
-    public async Task<bool> IncreaseArraySizeAsync(CancellationToken cancellationToken)
+    public async Task<MuninnResult> IncreaseArraySizeAsync(CancellationToken cancellationToken = default)
     {
         if (_isResizeCalled)
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
             _semaphoreSlim.Release(1);
 
-            return true;
+            return GetSuccessfulResult();
         }
-
-        _isResizeCalled = true;
 
         try
         {
-            var size = Count + DefaultIncreaseValue;
+            await _semaphoreSlim.WaitAsync(cancellationToken);
+            _isResizeCalled = true;
+            var size = _count + DefaultIncreaseValue;
             var entries = new Entry?[size];
             var indexes = new ResidentCacheIndex[size];
-            await _semaphoreSlim.WaitAsync(cancellationToken);
 
             for (var i = 0; i < _entries.Length; i++)
             {
                 entries[i] = _entries[i];
                 indexes[i] = _indexes[i];
-                indexes[i + _indexes.Length - 1] = new();
+                indexes[i + _indexes.Length] = new();
             }
 
             _entries = entries;
+            _indexes = indexes;
             _logger.LogIncreasedSize(size);
 
-            return true;
+            return GetSuccessfulResult();
         }
         catch (OperationCanceledException operationCanceledException)
         {
-            _logger.LogCancelledRequest(operationCanceledException);
-
-            return false;
+            return GetCancelledResult(nameof(IncreaseArraySizeAsync), operationCanceledException.Message, operationCanceledException);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogIncreaseArraySizeAsyncError(exception);
+            
+            return GetFailedResult("Cannot increase size of array", false, exception);
         }
         finally
         {
@@ -255,23 +273,23 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         }
     }
     
-    public async Task<bool> DecreaseArraySizeAsync(CancellationToken cancellationToken)
+    public async Task<MuninnResult> DecreaseArraySizeAsync(CancellationToken cancellationToken = default)
     {
         if (_isResizeCalled)
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
             _semaphoreSlim.Release(1);
 
-            return true;
+            return GetSuccessfulResult();
         }
         
-        var size = Count + DefaultIncreaseValue;
+        var size = _count + DefaultIncreaseValue;
         var array = new Entry?[size];
         var indexes = new ResidentCacheIndex[size];
 
         try
         {
-            for (var i = 0; i < Count; i++)
+            for (var i = 0; i < _count; i++)
             {
                 array[i] = _entries[i];
                 indexes[i] = new()
@@ -284,14 +302,18 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
             _entries = array;
             _indexes = indexes;
             _logger.LogDecreasedSize(size);
-            
-            return true;
+
+            return GetSuccessfulResult();
         }
         catch (OperationCanceledException operationCanceledException)
         {
-            _logger.LogCancelledRequest(operationCanceledException);
-
-            return false;
+            return GetCancelledResult(nameof(DecreaseArraySizeAsync), operationCanceledException.Message, operationCanceledException);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDecreaseArraySizeAsyncError(exception);
+            
+            return GetFailedResult("Cannot decrease array size", false, exception);
         }
         finally
         {
@@ -302,10 +324,12 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
     private int TryFindIndex(int hashcode, out int freeIndex)
     {
         freeIndex = NotValidIndex;
-
-        for (var i = 0; i < _entries.Length; i++)
+        var entries = _entries;
+        var indexes = _indexes;
+        
+        for (var i = 0; i < entries.Length; i++)
         {
-            var entry = _entries[i];
+            var entry = entries[i];
 
             if (entry is not null)
             {
@@ -322,19 +346,19 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
 
         if (freeIndex is not NotValidIndex)
         {
-            if (!_indexes[freeIndex].IsUsed)
+            if (!indexes[freeIndex].IsUsed)
             {
-                _indexes[freeIndex].IsUsed = true;
+                indexes[freeIndex].IsUsed = true;
             }
             else
             {
                 freeIndex = NotValidIndex;
 
-                for (var i = freeIndex + 1; i < _indexes.Length; i++)
+                for (var i = freeIndex + 1; i < indexes.Length; i++)
                 {
-                    if (!_indexes[i].IsUsed)
+                    if (!indexes[i].IsUsed)
                     {
-                        _indexes[i].IsUsed = true;
+                        indexes[i].IsUsed = true;
                         freeIndex = i;
 
                         return NotValidIndex;
@@ -364,13 +388,13 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         return index;
     }
 
-    private async Task<MuninnResult> AddCoreAsync(Entry entry, int index, CancellationToken cancellationToken)
+    private async Task<MuninnResult> AddCoreAsync(Entry entry, int index, CancellationToken cancellationToken = default)
     {
         try
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
             _entries[index] = entry;
-            Count++;
+            _count++;
             _logger.LogKeyAdd(entry.Key);
 
             return new MuninnResult(true, entry);
@@ -379,7 +403,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         {
             _logger.LogCancelledRequest(entry.Key, operationCanceledException);
 
-            return await GetCancelledResultAsync(nameof(AddCoreAsync), entry.Key);
+            return GetCancelledResult(nameof(AddCoreAsync), entry.Key, operationCanceledException);
         }
         catch (Exception exception)
         {
@@ -394,7 +418,7 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
         }
     }
 
-    private async Task<MuninnResult> UpdateCoreAsync(Entry entry, int index, CancellationToken cancellationToken)
+    private async Task<MuninnResult> UpdateCoreAsync(Entry entry, int index, CancellationToken cancellationToken = default)
     {
         Entry? oldEntry = null;
 
@@ -424,19 +448,6 @@ internal class ResidentCache(ILogger<IResidentCache> logger, IFilterManager filt
             _semaphoreSlim.Release(1);
         }
     }
-
-    private MuninnResult GetCancelledResult(string methodName, string key)
-    {
-        _logger.LogCancelledRequest(methodName, key);
-
-        return GetFailedResult("Cancellation has been requested", true);
-    }
-
-    private static MuninnResult GetFailedResult(string message, bool isCancelled, Exception? exception = null) => new(false, null, message, exception, isCancelled);
-
-    private Task<MuninnResult> GetCancelledResultAsync(string methodName, string key) => Task.FromResult(GetCancelledResult(methodName, key));
-
-    private static Task<MuninnResult> GetFailedResultAsync(string message) => Task.FromResult(GetFailedResult(message, false));
 
     private static ResidentCacheIndex[] CreateIndexes(int count)
     {

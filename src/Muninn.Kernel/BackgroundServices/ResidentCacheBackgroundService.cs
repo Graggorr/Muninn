@@ -3,9 +3,10 @@ using Muninn.Kernel.Common;
 
 namespace Muninn.Kernel.BackgroundServices;
 
-public class ResidentCacheBackgroundService(IResidentCache residentCache) : BackgroundService
+public class ResidentCacheBackgroundService(IResidentCache residentCache, ISortedResidentCache sortedResidentCache) : BackgroundService
 {
     private readonly IResidentCache _residentCache = residentCache;
+    private readonly ISortedResidentCache _sortedResidentCache = sortedResidentCache;
     private readonly TimeSpan _timeSpan = TimeSpan.FromSeconds(10);
     
     private const int MinimumDifferenceToIncrease = 100;
@@ -21,9 +22,11 @@ public class ResidentCacheBackgroundService(IResidentCache residentCache) : Back
             {
                 case <= MinimumDifferenceToIncrease:
                     await _residentCache.IncreaseArraySizeAsync(stoppingToken);
+                    await _sortedResidentCache.IncreaseArraySizeAsync(stoppingToken);
                     break;
                 case >= MinimumDifferenceToDecrease:
                     await _residentCache.DecreaseArraySizeAsync(stoppingToken);
+                    await _sortedResidentCache.DecreaseArraySizeAsync(stoppingToken);
                     break;
             }
             

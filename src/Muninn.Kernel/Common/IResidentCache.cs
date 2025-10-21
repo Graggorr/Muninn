@@ -8,27 +8,27 @@ public interface IResidentCache
     
     public int Length { get; }
     
-    public Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken);
+    public Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken = default);
 
-    public Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken);
+    public Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken = default);
 
-    public MuninnResult Get(string key, CancellationToken cancellationToken);
+    public MuninnResult Get(string key, CancellationToken cancellationToken = default);
 
-    public IEnumerable<Entry> GetAll(CancellationToken cancellationToken);
+    public IEnumerable<Entry> GetAll(CancellationToken cancellationToken = default);
 
-    public IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken);
+    public IEnumerable<Entry> GetEntriesByKeyFilters(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken = default);
 
-    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken);
+    public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken = default);
 
-    public Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken);
+    public Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken = default);
 
-    public Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken);
+    public Task<MuninnResult> InsertAsync(Entry entry, CancellationToken cancellationToken = default);
 
-    public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken);
+    public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default);
 
-    public Task<bool> IncreaseArraySizeAsync(CancellationToken cancellationToken);
+    public Task<MuninnResult> IncreaseArraySizeAsync(CancellationToken cancellationToken = default);
     
-    public Task<bool> DecreaseArraySizeAsync(CancellationToken cancellationToken);
+    public Task<MuninnResult> DecreaseArraySizeAsync(CancellationToken cancellationToken = default);
     
-    internal Task InitializeAsync(Entry[] entries);
+    internal Task InitializeAsync(Entry[] entries, CancellationToken cancellationToken = default);
 }

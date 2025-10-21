@@ -17,9 +17,8 @@ internal class SortedResidentCacheBackgroundService(ILogger<BackgroundService> l
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var entries = _residentCache.GetAll(stoppingToken);
             var timestamp = Stopwatch.GetTimestamp();
-            await _sortedResidentCache.SortAsync(entries.ToArray());
+            await _sortedResidentCache.SortAsync(stoppingToken);
             var elapsedTime = Stopwatch.GetElapsedTime(timestamp);
 
             if (elapsedTime > TimeSpan.FromMinutes(1))

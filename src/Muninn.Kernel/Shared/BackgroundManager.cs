@@ -1,8 +1,6 @@
 ﻿using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
 using System.Collections.Concurrent;
-using ZLinq;
-using ZLinq.Linq;
 
 namespace Muninn.Kernel.Shared;
 
@@ -29,5 +27,5 @@ internal class BackgroundManager : IBackgroundManager
 
     public void RemoveCleanupEntry(CleanupEntry cleanupEntry) => _cleanupEntries.Remove(cleanupEntry);
 
-    public IEnumerable<CleanupEntry> GetExpiredEntries() => _cleanupEntries.Where(entry => entry.ExpirationTime >= DateTime.UtcNow);
+    public IEnumerable<CleanupEntry> GetExpiredEntries() => _cleanupEntries.Where(entry => entry.ExpirationTime <= DateTime.UtcNow);
 }

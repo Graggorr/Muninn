@@ -1,10 +1,10 @@
 ﻿using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
-using Muninn.Kernel.Resident;
 
 namespace Muninn.Kernel;
 
-internal class CacheManager(IPersistentCache persistentCache, IResidentCache residentCache, IBackgroundManager persistentQueue, ISortedResidentCache sortedResidentCache) : ICacheManager
+internal class CacheManager(IPersistentCache persistentCache, IResidentCache residentCache,
+    IBackgroundManager persistentQueue, ISortedResidentCache sortedResidentCache) : ICacheManager
 {
     private readonly IPersistentCache _persistentCache = persistentCache;
     private readonly IResidentCache _residentCache = residentCache;
@@ -19,6 +19,7 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
 
         if (residentResult.IsSuccessful)
         {
+            _ = _sortedResidentCache.AddAsync(entry, cancellationToken);
             _ = _persistentQueue.EnqueueInsertionAsync(new(residentResult.Entry!), cancellationToken);
         }
 
@@ -31,25 +32,22 @@ internal class CacheManager(IPersistentCache persistentCache, IResidentCache res
 
         if (residentResult.IsSuccessful)
         {
+            _ = _sortedResidentCache.RemoveAsync(key, cancellationToken);
             _ = _persistentQueue.EnqueueDeletionAsync(new(new(key, [], null!, TimeSpan.Zero)), cancellationToken);
         }
 
         return residentResult;
     }
 
-    public async Task<MuninnResult> GetAsync(string key, CancellationToken cancellationToken)
+    public Task<MuninnResult> GetAsync(string key, CancellationToken cancellationToken)
     {
         var tasks = new List<Task<MuninnResult>>(2)
         {
             Task.Factory.StartNew(() => _residentCache.Get(key, cancellationToken), cancellationToken),
+            Task.Factory.StartNew(() => _sortedResidentCache.Get(key), cancellationToken)
         };
 
-        if (!_sortedResidentCache.IsSorting)
-        {
-            tasks.Add(Task.Factory.StartNew(() => _sortedResidentCache.GetByKey(key), cancellationToken));
-        }
-
-        return await GetCoreAsync(tasks, result => result.IsSuccessful && (!result.Message.Equals(SortedResidentCache.Message) || DateTime.UtcNow - result.Entry!.LastModificationTime > TimeSpan.FromMinutes(5)));
+        return GetCoreAsync(tasks, result => result.IsSuccessful);
     }
 
     public async Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)

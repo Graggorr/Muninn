@@ -4,10 +4,10 @@ using Muninn.Kernel.Models;
 
 namespace Muninn.Kernel.BackgroundServices;
 
-internal class PersistentCacheBackgroundService(IPersistentCache persistentCache, IBackgroundManager persistentQueue) : BackgroundService
+internal class PersistentCacheBackgroundService(IPersistentCache persistentCache, IBackgroundManager backgroundManager) : BackgroundService
 {
     private readonly IPersistentCache _persistentCache = persistentCache;
-    private readonly IBackgroundManager _persistentQueue = persistentQueue;
+    private readonly IBackgroundManager _backgroundManager = backgroundManager;
     private readonly TimeSpan _delayTime = TimeSpan.FromMilliseconds(200);
     private const int MaxTryCount = 10;
 
@@ -24,7 +24,7 @@ internal class PersistentCacheBackgroundService(IPersistentCache persistentCache
     {
         MuninnResult? result = null;
 
-        if (_persistentQueue.TryDequeueInsertion(out var command))
+        if (_backgroundManager.TryDequeueInsertion(out var command))
         {
             result = await _persistentCache.InsertAsync(command!.Entry, cancellationToken);
         }
@@ -36,7 +36,7 @@ internal class PersistentCacheBackgroundService(IPersistentCache persistentCache
     {
         MuninnResult? result = null;
 
-        if (_persistentQueue.TryDequeueDeletion(out var command))
+        if (_backgroundManager.TryDequeueDeletion(out var command))
         {
             result = await _persistentCache.RemoveAsync(command!.Entry.Key, cancellationToken);
         }
@@ -59,12 +59,12 @@ internal class PersistentCacheBackgroundService(IPersistentCache persistentCache
 
                 if (isInsert)
                 {
-                    await _persistentQueue.EnqueueInsertionAsync(command, cancellationToken);
+                    await _backgroundManager.EnqueueInsertionAsync(command, cancellationToken);
 
                     return;
                 }
 
-                await _persistentQueue.EnqueueDeletionAsync(command, cancellationToken);
+                await _backgroundManager.EnqueueDeletionAsync(command, cancellationToken);
             }
         }
     }
