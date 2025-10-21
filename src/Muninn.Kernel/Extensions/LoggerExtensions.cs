@@ -25,19 +25,19 @@ internal static partial class LoggerExtensions
     [LoggerMessage(EventId = 8007, Level = LogLevel.Warning, Message = "Request {Request} for {Key} has been cancelled", SkipEnabledCheck = true)]
     public static partial void LogCancelledRequest(this ILogger logger, string request, string key, OperationCanceledException? operationCanceledException = null);
 
-    [LoggerMessage(EventId = 8008, Level = LogLevel.Information, Message = "Key {Key} has been added")]
+    [LoggerMessage(EventId = 8008, Level = LogLevel.Debug, Message = "Key {Key} has been added")]
     public static partial void LogKeyAdd(this ILogger logger, string key);
 
-    [LoggerMessage(EventId = 8009, Level = LogLevel.Information, Message = "Key {Key} has been updated. New value:\n{value}")]
+    [LoggerMessage(EventId = 8009, Level = LogLevel.Debug, Message = "Key {Key} has been updated. New value:\n{value}")]
     public static partial void LogKeyUpdate(this ILogger logger, string key, byte[] value);
 
-    [LoggerMessage(EventId = 8010, Level = LogLevel.Information, Message = "Key {Key} has been deleted")]
+    [LoggerMessage(EventId = 8010, Level = LogLevel.Debug, Message = "Key {Key} has been deleted")]
     public static partial void LogKeyDelete(this ILogger logger, string key);
 
-    [LoggerMessage(EventId = 8011, Level = LogLevel.Information, Message = "File {Name} has been inserted")]
+    [LoggerMessage(EventId = 8011, Level = LogLevel.Debug, Message = "File {Name} has been inserted")]
     public static partial void LogFileInsert(this ILogger logger, string name);
 
-    [LoggerMessage(EventId = 8012, Level = LogLevel.Information, Message = "File {Name} has been deleted")]
+    [LoggerMessage(EventId = 8012, Level = LogLevel.Debug, Message = "File {Name} has been deleted")]
     public static partial void LogFileDelete(this ILogger logger, string name);
 
     [LoggerMessage(EventId = 8013, Level = LogLevel.Information, Message = "Key {Key} is not found")]
@@ -67,6 +67,15 @@ internal static partial class LoggerExtensions
     [LoggerMessage(EventId = 8020, Level = LogLevel.Warning, Message = "Request {Request} has been cancelled", SkipEnabledCheck = true)]
     public static partial void LogCancelledRequest(this ILogger logger, string request, OperationCanceledException operationCanceledException);
 
-    [LoggerMessage(EventId = 8021, Level = LogLevel.Error, Message = "Cannot clear cache")]
+    [LoggerMessage(EventId = 8021, Level = LogLevel.Error, Message = "Cannot clear cache", SkipEnabledCheck = true)]
     public static partial void LogClearAsyncError(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 8021, Level = LogLevel.Error, Message = "Cannot increase array size", SkipEnabledCheck = true)]
+    public static partial void LogIncreaseArraySizeAsyncError(this ILogger logger, Exception exception);
+    
+    [LoggerMessage(EventId = 8022, Level = LogLevel.Error, Message = "Cannot decrease array size", SkipEnabledCheck = true)]
+    public static partial void LogDecreaseArraySizeAsyncError(this ILogger logger, Exception exception);
+    
+    [LoggerMessage(EventId = 8023, Level = LogLevel.Error, Message = "Error has raised during the finding {Key}", SkipEnabledCheck = true)]
+    public static partial void LogGerError(this ILogger logger, string key, Exception exception);
 }
