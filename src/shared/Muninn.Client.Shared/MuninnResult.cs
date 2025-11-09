@@ -3,28 +3,28 @@
     /// <summary>
     /// Returns result of Muninn request
     /// </summary>
-    /// <param name="isSuccessful">Marks if requests was successful or not</param>
-    /// <param name="errorMessage">Message of the error in case of unsuccessful result</param>
-    public record MuninnResult(bool isSuccessful, string errorMessage)
+    /// <param name="IsSuccessful">Marks if requests was successful or not</param>
+    /// <param name="ErrorMessage">Message of the error in case of unsuccessful result</param>
+    public record MuninnResult(bool IsSuccessful, string ErrorMessage)
     {
         /// <summary>
         /// Marks if requests was successful or not
         /// </summary>
-        public bool isSuccessful { get; } = isSuccessful;
+        public bool IsSuccessful { get; } = IsSuccessful;
 
         /// <summary>
         /// Message of the error in case of unsuccessful result
         /// </summary>
-        public string errorMessage { get; } = errorMessage;
+        public string ErrorMessage { get; } = ErrorMessage;
     }
 
     /// <summary>
     /// Returns result of Muninn request with <paramref name="Value"/>
     /// </summary>
     /// <typeparam name="T">Generic type of the value</typeparam>
-    /// <param name="isSuccessful">Marks if requests was successful or not</param>
-    /// <param name="errorMessage">Message of the error in case of unsuccessful result</param>
-    public record MuninnResult<T>(bool isSuccessful, string errorMessage, T? Value) : MuninnResult(isSuccessful, errorMessage)
+    /// <param name="IsSuccessful">Marks if requests was successful or not</param>
+    /// <param name="ErrorMessage">Message of the error in case of unsuccessful result</param>
+    public record MuninnResult<T>(bool IsSuccessful, string ErrorMessage, T? Value) : MuninnResult(IsSuccessful, ErrorMessage)
     {
         /// <summary>
         /// Actual value. Null in case of IsSuccessful is false

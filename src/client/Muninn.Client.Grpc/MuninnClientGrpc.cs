@@ -181,6 +181,6 @@ internal class MuninnClientGrpc(ILogger<IMuninnClient> logger, IOptions<MuninnCo
             errorMessage = BinarySerializer.Deserialize<string>(array, encoding);
         }
 
-        return new MuninnResult<T>(isSuccessful, errorMessage, value);
+        return new MuninnResult<T>(isSuccessful, errorMessage ?? string.Empty, value);
     }
 }
