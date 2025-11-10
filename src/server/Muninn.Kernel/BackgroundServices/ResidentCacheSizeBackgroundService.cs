@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Muninn.Kernel.Common;
+using Muninn.Kernel.Extensions;
 
 namespace Muninn.Kernel.BackgroundServices;
 
 public class ResidentCacheSizeBackgroundService : BackgroundService
 {
+    private readonly ILogger _logger;
     private readonly IResidentCache _residentCache;
     private readonly TimeSpan _timeSpan = TimeSpan.FromSeconds(10);
     private readonly List<Func<CancellationToken, Task>> _increaseTasks;
@@ -13,9 +16,10 @@ public class ResidentCacheSizeBackgroundService : BackgroundService
     private const int MinimumDifferenceToIncrease = 100;
     private const int MinimumDifferenceToDecrease = 1000;
 
-    public ResidentCacheSizeBackgroundService(IResidentCache residentCache, IEnumerable<IBaseCache> baseCaches)
+    public ResidentCacheSizeBackgroundService(ILogger<BackgroundService> logger, IResidentCache residentCache, IEnumerable<IBaseCache> baseCaches)
     {
         var sortedResidentCache = baseCaches.FirstOrDefault(cache => cache is ISortedResidentCache) as ISortedResidentCache;
+        _logger = logger;
         _residentCache = residentCache;
         _increaseTasks = new List<Func<CancellationToken, Task>>(2)
         {
@@ -51,5 +55,7 @@ public class ResidentCacheSizeBackgroundService : BackgroundService
             
             await Task.Delay(_timeSpan, stoppingToken);
         }
+        
+        _logger.LogBackgroundServiceShutdown(nameof(ResidentCacheSizeBackgroundService));
     }
 }

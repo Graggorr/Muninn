@@ -7,7 +7,8 @@ namespace Muninn.Kernel.Common;
 public abstract class BaseCache<TSelf>(ILogger<TSelf> logger, IFilterService filterService)
 {
     internal const int DefaultIncreaseValue = 1000;
-
+    internal const int InitialArraySize = 10_000;
+    
     protected readonly ILogger _logger = logger;
     protected readonly IFilterService _filterService = filterService;
     protected readonly SemaphoreSlim _semaphoreSlim = new(1);

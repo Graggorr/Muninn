@@ -3,7 +3,6 @@ using Muninn.Kernel.Common;
 using Muninn.Kernel.Resident;
 using Muninn.Kernel.Shared;
 using Muninn.Server.Tests.Common;
-using Muninn.Server.Tests.Extensions.cs;
 using Muninn.Tests.Shared;
 using Muninn.Tests.Shared.Extensions;
 using Shouldly;
@@ -82,8 +81,8 @@ public class ResidentCacheTests : BaseTests<IResidentCache>
 
         // Act
 
-        await AddEntriesAsync(1000);
-        var isMaxArraySize = _residentCache.Length is ResidentCache.DefaultIncreaseValue;
+        await AddEntriesAsync(10000);
+        var isMaxArraySize = _residentCache.Length is ResidentCache.InitialArraySize;
         var result = await _residentCache.AddAsync(entry);
 
         // Assert
@@ -138,7 +137,7 @@ public class ResidentCacheTests : BaseTests<IResidentCache>
         // Act
 
         await AddEntriesAsync(count);
-        var entries = _residentCache.GetAll(CancellationToken.None).ToList();
+        var entries = (await _residentCache.GetAllAsync(true, CancellationToken.None)).ToList();
 
         // Assert
 
@@ -171,7 +170,8 @@ public class ResidentCacheTests : BaseTests<IResidentCache>
         // Arrange
 
         var entry = EntryCreator.CreateRandomEntry();
-        var updateEntry = entry.Clone([0, 1, 3]);
+        var updateEntry = entry.Clone();
+        updateEntry.Value = [0, 1, 8];
 
         // Act
 
@@ -182,7 +182,7 @@ public class ResidentCacheTests : BaseTests<IResidentCache>
 
         addResult.ShouldBeSuccessful(entry);
         updateResult.ShouldBeSuccessful(updateEntry);
-        addResult.Entry!.Value.ShouldNotBe(updateResult.Entry!.Value);
+        addResult.Entry!.Value.ShouldBe(updateResult.Entry!.Value);
     }
 
     [Fact]
@@ -207,7 +207,8 @@ public class ResidentCacheTests : BaseTests<IResidentCache>
         // Arrange
 
         var entry = EntryCreator.CreateRandomEntry();
-        var insertEntry = entry.Clone([0, 1, 8]);
+        var insertEntry = entry.Clone();
+        insertEntry.Value = [0, 1, 2];
 
         // Act
 

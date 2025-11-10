@@ -1,5 +1,6 @@
 ﻿using Muninn.Kernel.Common;
 using Muninn.Kernel.Models;
+using Muninn.Kernel.Shared;
 
 namespace Muninn.Kernel;
 
@@ -43,6 +44,27 @@ internal class CacheManager(IResidentCache residentCache, IEnumerable<IOptionalC
         return GetCoreAsync(tasks, result => result.IsSuccessful);
     }
 
+    public async Task<IEnumerable<Entry>> GetAllAsync(bool isTracking, CancellationToken cancellationToken = default)
+    {
+        var tasks = new List<Task<IEnumerable<Entry>>>
+        {
+            _residentCache.GetAllAsync(isTracking, cancellationToken),
+        };
+        tasks.AddRange(_handlers.Select(handler => handler.GetAllAsync(isTracking, cancellationToken)));
+        await Task.WhenAll(tasks);
+        var lists = tasks.Select(task => task.Result).ToList();
+        var result = lists.First().ToList();
+        lists.Remove(result);
+        var comparer = new EntryComparer();
+        
+        foreach (var list in lists)
+        {
+            result = result.Union(list, comparer).ToList();
+        }
+        
+        return result;
+    }
+    
     public Task<IEnumerable<Entry>> GetEntriesByKeyFiltersAsync(IEnumerable<IEnumerable<KeyFilter>> chunks, CancellationToken cancellationToken)
     {
         var tasks = new List<Task<IEnumerable<Entry>>>(2)
@@ -53,7 +75,7 @@ internal class CacheManager(IResidentCache residentCache, IEnumerable<IOptionalC
         return GetCoreAsync(tasks, entries => entries.Any());
     }
 
-    public Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken)
+    public Task<IEnumerable<Entry>> GetEntriesByValueFiltersAsync(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken = default)
     {
         var tasks = new List<Task<IEnumerable<Entry>>>(2)
         {

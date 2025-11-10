@@ -17,8 +17,11 @@ public static class EntryCreator
             .Append(Guid.CreateVersion7().ToString())
             .Append(Guid.CreateVersion7().ToString());
         var value = encoding.GetBytes(valueBuilder.ToString());
-        
-        return new Entry(Guid.CreateVersion7().ToString(), value, encoding, TimeSpan.FromDays(1));
+
+        return new(Guid.CreateVersion7().ToString(), value, encoding)
+        {
+            LifeTime = TimeSpan.FromDays(1),
+        };
     }
 
     public static Entry CreateFixtureEntry()

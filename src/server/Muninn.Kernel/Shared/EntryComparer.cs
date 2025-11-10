@@ -2,7 +2,7 @@ using Muninn.Kernel.Models;
 
 namespace Muninn.Kernel.Shared;
 
-public struct EntryComparer : IComparer<Entry>
+public struct EntryComparer : IComparer<Entry>, IEqualityComparer<Entry>
 {
     public int Compare(Entry? first, Entry? second)
     {
@@ -22,5 +22,30 @@ public struct EntryComparer : IComparer<Entry>
         }
 
         return first.Hashcode.CompareTo(second.Hashcode);
+    }
+
+    public bool Equals(Entry? x, Entry? y)
+    {
+        if (ReferenceEquals(x, y))
+        {
+            return true;
+        }
+
+        if (x is null)
+        {
+            return false;
+        }
+
+        if (y is null)
+        {
+            return false;
+        }
+
+        return GetHashCode(x).Equals(GetHashCode(y));
+    }
+
+    public int GetHashCode(Entry obj)
+    {
+        return obj.Hashcode;
     }
 }

@@ -381,8 +381,9 @@ internal class PersistentCache(ILogger<IPersistentCache> logger, IFilterService 
         var creationTime = new DateTime(long.Parse(split[CreationTimePosition]));
         var lastModificationTime = new DateTime(long.Parse(split[LastModificationTimePosition]));
 
-        return new(key, [], encoding, lifeTime)
+        return new(key, [], encoding)
         {
+            LifeTime = lifeTime,
             CreationTime = creationTime,
             LastModificationTime = lastModificationTime,
         };

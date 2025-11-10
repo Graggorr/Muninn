@@ -14,7 +14,7 @@ public interface IResidentCache : IBaseCache
 
     public IEnumerable<Entry> GetEntriesByValueFilters(IEnumerable<IEnumerable<ValueFilter>> chunks, CancellationToken cancellationToken = default);
     
-    public IEnumerable<Entry> GetAll(CancellationToken cancellationToken = default);
+    public Task<IEnumerable<Entry>> GetAllAsync(bool isTracking, CancellationToken cancellationToken = default);
 
     public Task<MuninnResult> IncreaseArraySizeAsync(CancellationToken cancellationToken = default);
     

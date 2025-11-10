@@ -24,7 +24,14 @@ public static class Endpoints
         [FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
         var encoding = Encoding.GetEncoding(request.Body.EncodingName);
-        var entry = new Entry(request.Key, encoding.GetBytes(request.Body.Value), encoding, request.Body.LifeTime);
+        var entry = new Entry(request.Key, encoding.GetBytes(request.Body.Value), encoding);
+        var lifeTime = request.Body.LifeTime;
+
+        if (lifeTime > TimeSpan.Zero)
+        {
+            entry.LifeTime = lifeTime;
+        }
+        
         var result = await cacheManager.AddAsync(entry, cancellationToken);
 
         return GetResponse(result, true);
@@ -34,7 +41,14 @@ public static class Endpoints
         [FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
         var encoding = Encoding.GetEncoding(request.Body.EncodingName);
-        var entry = new Entry(request.Key, encoding.GetBytes(request.Body.Value), encoding, request.Body.LifeTime);
+        var entry = new Entry(request.Key, encoding.GetBytes(request.Body.Value), encoding);
+        var lifeTime = request.Body.LifeTime;
+
+        if (lifeTime > TimeSpan.Zero)
+        {
+            entry.LifeTime = lifeTime;
+        }
+        
         var result = await cacheManager.InsertAsync(entry, cancellationToken);
 
         return GetResponse(result, true);
@@ -52,7 +66,14 @@ public static class Endpoints
         [FromServices] ICacheManager cacheManager, CancellationToken cancellationToken)
     {
         var encoding = Encoding.GetEncoding(request.Body.EncodingName);
-        var entry = new Entry(request.Key, encoding.GetBytes(request.Body.Value), encoding, request.Body.LifeTime);
+        var entry = new Entry(request.Key, encoding.GetBytes(request.Body.Value), encoding);
+        var lifeTime = request.Body.LifeTime;
+
+        if (lifeTime > TimeSpan.Zero)
+        {
+            entry.LifeTime = lifeTime;
+        }
+        
         var result = await cacheManager.UpdateAsync(entry, cancellationToken);
 
         return GetResponse(result, true);
