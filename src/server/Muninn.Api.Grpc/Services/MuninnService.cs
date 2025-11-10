@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Google.Protobuf;
 using Grpc.Core;
 using Muninn.Grpc;
 using Muninn.Grpc.Contracts.Extensions;
@@ -16,7 +15,14 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
     public override async Task<AddReply> Add(AddRequest request, ServerCallContext context)
     {
         var encoding = Encoding.GetEncoding(request.EncodingName);
-        var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding, request.LifeTime.ToTimeSpan());
+        var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding);
+        var lifeTime = request.LifeTime.ToTimeSpan();
+
+        if (lifeTime > TimeSpan.Zero)
+        {
+            entry.LifeTime = lifeTime;
+        }
+        
         var result = await _cacheManager.AddAsync(entry, context.CancellationToken);
         var reply = new AddReply
         {
@@ -30,7 +36,15 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
     public override async Task<InsertReply> Insert(InsertRequest request, ServerCallContext context)
     {
         var encoding = Encoding.GetEncoding(request.EncodingName);
-        var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding, request.LifeTime.ToTimeSpan());
+        var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding);
+        
+        var lifeTime = request.LifeTime.ToTimeSpan();
+
+        if (lifeTime > TimeSpan.Zero)
+        {
+            entry.LifeTime = lifeTime;
+        }
+        
         var result = await _cacheManager.InsertAsync(entry, context.CancellationToken);
         var reply = new InsertReply
         {
@@ -67,7 +81,15 @@ public class MuninnService(ICacheManager cacheManager) : MuninnServiceBase
     public override async Task<UpdateReply> Update(UpdateRequest request, ServerCallContext context)
     {
         var encoding = Encoding.GetEncoding(request.EncodingName);
-        var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding, request.LifeTime.ToTimeSpan());
+        var entry = new Entry(request.Key, request.Value.ToByteArray(), encoding);
+        
+        var lifeTime = request.LifeTime.ToTimeSpan();
+
+        if (lifeTime > TimeSpan.Zero)
+        {
+            entry.LifeTime = lifeTime;
+        }
+        
         var result = await _cacheManager.UpdateAsync(entry, context.CancellationToken);
         var reply = new UpdateReply
         {

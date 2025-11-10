@@ -10,6 +10,8 @@ public interface IOptionalCacheHandler
     
     public Task<MuninnResult> GetAsync(string key, CancellationToken cancellationToken = default);
     
+    public Task<IEnumerable<Entry>> GetAllAsync(bool isTracking, CancellationToken cancellationToken = default);
+    
     public Task UpdateAsync(Entry entry, CancellationToken cancellationToken = default);
     
     public Task RemoveAsync(string key, CancellationToken cancellationToken = default);

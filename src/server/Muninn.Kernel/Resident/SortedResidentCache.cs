@@ -13,9 +13,6 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, IFilter
     public override Task<MuninnResult> AddAsync(Entry entry, CancellationToken cancellationToken = default) =>
         SortIfSuccessfulAsync(base.AddAsync(entry, cancellationToken));
 
-    public override Task<MuninnResult> UpdateAsync(Entry entry, CancellationToken cancellationToken = default) =>
-        SortIfSuccessfulAsync(base.UpdateAsync(entry, cancellationToken));
-
     public override Task<MuninnResult> RemoveAsync(string key, CancellationToken cancellationToken = default) =>
         SortIfSuccessfulAsync(base.RemoveAsync(key, cancellationToken));
 
@@ -27,7 +24,7 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, IFilter
         try
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
-            var index = Array.BinarySearch(_entries, new Entry(key, [], Encoding.Default, TimeSpan.Zero), new EntryComparer());
+            var index = Array.BinarySearch(_entries, new(key, [], Encoding.Default), new EntryComparer());
 
             return int.IsNegative(index)
                 ? GetFailedResult($"Key {key} is not found", false)
@@ -49,12 +46,28 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, IFilter
         }
     }
 
-    public async Task<MuninnResult> SortAsync(CancellationToken cancellationToken = default)
+    public override async Task<IEnumerable<Entry>> GetAllAsync(bool isTracking, CancellationToken cancellationToken = default)
+    {
+        var result = await base.GetAllAsync(isTracking, cancellationToken);
+
+        if (!isTracking)
+        {
+            var array = result.ToArray();
+            await SortAsync(array, cancellationToken);
+            result = new List<Entry>(array);
+        }
+        
+        return result;
+    }
+
+    public Task<MuninnResult> SortAsync(CancellationToken cancellationToken = default) => SortAsync(_entries, cancellationToken);
+
+    private async Task<MuninnResult> SortAsync(Entry?[] entries, CancellationToken cancellationToken = default)
     {
         try
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
-            Array.Sort(_entries, new EntryComparer());
+            Array.Sort(entries, new EntryComparer());
 
             return GetSuccessfulResult();
         }
@@ -73,7 +86,7 @@ internal class SortedResidentCache(ILogger<ISortedResidentCache> logger, IFilter
             _semaphoreSlim.Release(1);
         }
     }
-
+    
     private async Task<MuninnResult> SortIfSuccessfulAsync(Task<MuninnResult> task)
     {
         var result = await task;

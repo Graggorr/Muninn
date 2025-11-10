@@ -17,5 +17,7 @@ public class SortedResidentCacheHandler(ISortedResidentCache cache) : IOptionalC
 
     public Task<MuninnResult> GetAsync(string key, CancellationToken cancellationToken = default) => _cache.GetAsync(key, cancellationToken);
     
+    public Task<IEnumerable<Entry>> GetAllAsync(bool isTracking, CancellationToken cancellationToken = default) => _cache.GetAllAsync(isTracking, cancellationToken);
+    
     public Task<MuninnResult> ClearAsync(CancellationToken cancellationToken = default) => _cache.ClearAsync(cancellationToken);
 }

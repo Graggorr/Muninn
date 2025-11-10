@@ -58,6 +58,8 @@ public class PersistentCacheHandler(IPersistentCache persistentCache) : IOptiona
 
     public Task<MuninnResult> GetAsync(string key, CancellationToken cancellationToken = default) => _cache.GetAsync(key, cancellationToken);
     
+    public Task<IEnumerable<Entry>> GetAllAsync(bool isTracking, CancellationToken cancellationToken = default) => _cache.GetAllAsync(cancellationToken);
+    
     public Task UpdateAsync(Entry entry, CancellationToken cancellationToken = default) => InsertAsync(entry, cancellationToken);
 
     public Task AddAsync(Entry entry, CancellationToken cancellationToken = default) => InsertAsync(entry, cancellationToken);

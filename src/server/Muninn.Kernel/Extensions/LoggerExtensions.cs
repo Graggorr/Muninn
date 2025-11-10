@@ -78,4 +78,7 @@ internal static partial class LoggerExtensions
     
     [LoggerMessage(EventId = 8023, Level = LogLevel.Error, Message = "Error has raised during the finding {Key}", SkipEnabledCheck = true)]
     public static partial void LogGetError(this ILogger logger, string key, Exception exception);
+
+    [LoggerMessage(EventId = 8024, Level = LogLevel.Information, Message = "Background service {Name} is shutdown", SkipEnabledCheck = true)]
+    public static partial void LogBackgroundServiceShutdown(this ILogger logger, string name);
 }

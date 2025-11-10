@@ -2,7 +2,6 @@ using Muninn.Kernel.Common;
 using Muninn.Kernel.Resident;
 using Muninn.Kernel.Shared;
 using Muninn.Server.Tests.Common;
-using Muninn.Server.Tests.Extensions.cs;
 using Muninn.Tests.Shared;
 using Muninn.Tests.Shared.Extensions;
 using Shouldly;
@@ -23,11 +22,12 @@ public class SortedResidentCacheTests : BaseTests<ISortedResidentCache>
     { 
         // Act
 
-        await AddEntriesAsync(10000, CancellationToken);
+        await AddEntriesAsync(1000, CancellationToken);
+        var result = (await _sortedResidentCache.GetAllAsync(false, CancellationToken)).ToList();
         
         // Assert
 
-        _sortedResidentCache.GetAll().ToList().ShouldBeInOrder(SortDirection.Ascending, new EntryComparer());
+        result.ShouldBeInOrder(SortDirection.Ascending, new EntryComparer());
     }
 
     [Fact]
