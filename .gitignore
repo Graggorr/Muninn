@@ -1,0 +1,14 @@
+## Build output
+bin/
+obj/
+/packages/
+
+## JetBrains Rider / ReSharper
+.idea/
+.idea.*/
+*.iml
+_ReSharper*/
+/_ReSharper.Caches/
+*.[Rr]e[Ss]harper
+*.[Rr]e[Ss]harper.user
+*.DotSettings.user
