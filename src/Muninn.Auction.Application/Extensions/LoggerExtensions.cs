@@ -19,4 +19,10 @@ internal static partial class LoggerExtensions
     
     [LoggerMessage(Level = Information, Message = "Lot {LotId} has been updated")]
     public static partial void LotUpdated(this ILogger logger, Guid lotId);
+
+    [LoggerMessage(Level = Debug, Message = "{Request} has been finished in {Time} {Status}")]
+    public static partial void RequestFinished(this ILogger logger, string request, TimeSpan time, string status);
+
+    [LoggerMessage(Level = Error, Message = "{Request} has failed due to error. Request body:\n{RequestBody}")]
+    public static partial void RequestError(this ILogger logger, string request, string requestBody, Exception exception);
 }
