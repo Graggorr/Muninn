@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -7,10 +7,15 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Ardalis.Specification.EntityFrameworkCore"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational"/>
         <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions"/>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
         <PackageReference Include="OpenTelemetry"/>
+        <PackageReference Include="Npgsql.DependencyInjection"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+        <PackageReference Include="EFCore.NamingConventions"/>
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore"/>
     </ItemGroup>
 
     <ItemGroup>
