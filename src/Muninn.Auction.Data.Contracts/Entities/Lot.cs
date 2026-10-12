@@ -1,4 +1,4 @@
-namespace Muninn.Auction.Data.Entities;
+namespace Muninn.Auction.Data.Contracts.Entities;
 
 public sealed record Lot : BaseEntity
 {
@@ -16,9 +16,9 @@ public sealed record Lot : BaseEntity
     
     public bool IsFinished { get; set; }
     
-    public required User Owner { get; init; }
+    public required Guid OwnerId { get; init; }
     
-    public Guid OwnerId { get; init; }
+    public User Owner { get; init; } = null!;
 
     public Bid? WinnerBid { get; set; }
     

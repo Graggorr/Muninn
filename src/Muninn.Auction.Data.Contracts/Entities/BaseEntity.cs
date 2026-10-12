@@ -1,8 +1,8 @@
-using Muninn.Auction.Data.Common;
+using Muninn.Auction.Data.Contracts.Common;
 
-namespace Muninn.Auction.Data.Entities;
+namespace Muninn.Auction.Data.Contracts.Entities;
 
-public abstract record BaseEntity : IEntity, ILastUpdated, IDeleted, ICreated
+public abstract record BaseEntity : IEntity, ILastUpdated, IDeleted
 {
     public Guid Id { get; init; }
 

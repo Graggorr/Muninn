@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Muninn.Auction.Common.Extensions;
-using Muninn.Auction.Data.Common;
-using Muninn.Auction.Data.Entities;
+using Muninn.Auction.Data.Contracts.Common;
+using Muninn.Auction.Data.Contracts.Entities;
 using OpenTelemetry;
 using static Muninn.Auction.Common.Constants;
 

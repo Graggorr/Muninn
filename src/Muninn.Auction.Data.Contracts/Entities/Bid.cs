@@ -1,4 +1,4 @@
-namespace Muninn.Auction.Data.Entities;
+namespace Muninn.Auction.Data.Contracts.Entities;
 
 public sealed record Bid : IEntity
 {
@@ -8,11 +8,13 @@ public sealed record Bid : IEntity
 
     public string CreatedBy { get; set; } = string.Empty;
 
-    public required User Owner { get; init; }
-    
+    public required ulong Amount { get; init; }
+
     public required Guid OwnerId { get; init; }
-    
-    public required Lot Lot { get; init; }
-    
+
+    public User Owner { get; init; } = null!;
+
     public required Guid LotId { get; init; }
+
+    public Lot Lot { get; init; } = null!;
 }

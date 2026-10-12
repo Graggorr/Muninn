@@ -1,8 +1,7 @@
 using FluentResults;
-using Muninn.Auction.Data.Common;
-using Muninn.Auction.Data.Entities;
+using Muninn.Auction.Data.Contracts.Entities;
 
-namespace Muninn.Auction.Data.Repositories;
+namespace Muninn.Auction.Data.Contracts.Common;
 
 public interface IDeleteRepository<TEntity> : IRepository<TEntity> where TEntity : class, IEntity, IDeleted
 {
