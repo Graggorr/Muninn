@@ -1,4 +1,4 @@
-namespace Muninn.Auction.Data.Entities;
+namespace Muninn.Auction.Data.Contracts.Entities;
 
 public record BaseProfileEntity : BaseEntity
 {

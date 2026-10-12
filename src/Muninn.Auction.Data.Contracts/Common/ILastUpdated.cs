@@ -1,4 +1,4 @@
-namespace Muninn.Auction.Data.Common;
+namespace Muninn.Auction.Data.Contracts.Common;
 
 public interface ILastUpdated 
 { 

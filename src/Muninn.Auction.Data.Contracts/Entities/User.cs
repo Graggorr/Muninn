@@ -1,4 +1,4 @@
-namespace Muninn.Auction.Data.Entities;
+namespace Muninn.Auction.Data.Contracts.Entities;
 
 public sealed record User : BaseProfileEntity
 {
@@ -9,8 +9,6 @@ public sealed record User : BaseProfileEntity
     public bool IsEmailConfirmed { get; set; }
     
     public ulong Amount { get; set; }
-    
-    public List<Lot> WonLots { get; init; } = [];
     
     public List<Lot> HistoryLots { get; init; } = [];
 }

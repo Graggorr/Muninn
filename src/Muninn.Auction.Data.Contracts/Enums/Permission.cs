@@ -1,4 +1,4 @@
-namespace Muninn.Auction.Data.Enums;
+namespace Muninn.Auction.Data.Contracts.Enums;
 
 public enum Permission
 {

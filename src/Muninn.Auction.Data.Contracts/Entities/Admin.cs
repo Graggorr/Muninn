@@ -1,6 +1,6 @@
-using Muninn.Auction.Data.Enums;
+using Muninn.Auction.Data.Contracts.Enums;
 
-namespace Muninn.Auction.Data.Entities;
+namespace Muninn.Auction.Data.Contracts.Entities;
 
 public sealed record Admin : BaseProfileEntity
 {
