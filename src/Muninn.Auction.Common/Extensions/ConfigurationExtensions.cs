@@ -15,5 +15,13 @@ public static class ConfigurationExtensions
 
             return serviceName;
         }
+
+        public string GetDatabaseConnectionString()
+        {
+            var connectionString = configuration.GetConnectionString("PostgreSql");
+            ThrowIfNullOrWhiteSpace(connectionString);
+            
+            return connectionString;
+        }
     }
 }
